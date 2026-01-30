@@ -31,3 +31,7 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
+
+# Ignore screenshots directory (contains captured page images)
+/public/screenshots/*
+!/public/screenshots/.keep

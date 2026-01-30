@@ -1,0 +1,30 @@
+.test-json-details {
+  margin-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+}
+
+.test-json-details summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+  user-select: none;
+  padding: 0.25rem 0;
+}
+
+.test-json-details summary:hover {
+  color: #475569;
+}
+
+.test-json-details pre {
+  margin-top: 0.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  color: #1e293b;
+  border: 1px solid #e5e7eb;
+  line-height: 1.4;
+}

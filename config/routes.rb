@@ -9,4 +9,21 @@ Rails.application.routes.draw do
       get "pages/:page_id", to: "audits#page_details", as: :page_details
     end
   end
+
+  # Test management routes
+  resources :test_groups, path: "test-groups" do
+    member do
+      post :toggle_active
+    end
+  end
+
+  resources :tests do
+    member do
+      post :toggle_active
+    end
+    collection do
+      post :import
+      get :export
+    end
+  end
 end

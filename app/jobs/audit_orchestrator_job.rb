@@ -14,7 +14,6 @@ class AuditOrchestratorJob < ApplicationJob
       end
 
       audit.update(status: "complete")
-      audit.calculate_overall_score!
 
       Rails.logger.info "✓ Audit complete: #{audit.url}"
     rescue => e
@@ -88,7 +87,7 @@ class AuditOrchestratorJob < ApplicationJob
   def run_page_tests(page)
     Rails.logger.info "Running tests for: #{page.url}"
 
-    runner = Tests::TestRunner.new(page)
+    runner = Tests::DynamicTestRunner.new(page)
     runner.run_all_tests!
 
     # Jobs are queued asynchronously, so we'll poll for completion
@@ -184,17 +183,24 @@ class AuditOrchestratorJob < ApplicationJob
   end
 
   def wait_for_tests_completion(page, audit)
-    expected_count = Tests::TestRegistry.all_v1_tests.size
-    max_attempts = 60 # Wait up to 60 seconds
+    expected_count = Test.active.count
+    max_attempts = 120 # Wait up to 2 minutes
     attempts = 0
+    last_count = 0
 
     loop do
+      page.reload
       current_count = page.test_results.count
+
+      # Log progress when count changes
+      if current_count != last_count
+        Rails.logger.info "Test progress: #{current_count}/#{expected_count} completed"
+        last_count = current_count
+      end
 
       if current_count >= expected_count
         Rails.logger.info "✓ All #{current_count} tests completed for #{page.url}"
         page.update(testing_status: "complete")
-        audit.calculate_overall_score!
         audit.update(status: "complete", current_phase: "complete")
         break
       end
@@ -203,12 +209,12 @@ class AuditOrchestratorJob < ApplicationJob
       if attempts >= max_attempts
         Rails.logger.warn "⚠ Timeout waiting for tests (#{current_count}/#{expected_count} completed)"
         page.update(testing_status: "complete")
-        audit.calculate_overall_score!
         audit.update(status: "complete", current_phase: "complete")
         break
       end
 
-      sleep 1
+      # Check more frequently when tests are running
+      sleep(current_count > 0 ? 0.5 : 1)
     end
   end
 end

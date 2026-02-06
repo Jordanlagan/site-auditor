@@ -23,7 +23,7 @@ module AuditWorkflow
     def calculate_priority_score(page)
       # Homepage always gets maximum priority
       return 100 if page.page_type == "homepage"
-      
+
       # Use AI to intelligently score page importance
       ai_score = ask_ai_to_score_page(page)
       return ai_score if ai_score

@@ -4,26 +4,24 @@ class RunTestJob < ApplicationJob
   def perform(discovered_page_id, test_key)
     discovered_page = DiscoveredPage.find(discovered_page_id)
 
-    test_class = Tests::TestRegistry.get_test_class(test_key)
-    return unless test_class
-
-    Rails.logger.info "  Running test: #{test_key}"
-
-    test_instance = test_class.new(discovered_page)
-    test_instance.run!
+    # Use dynamic test runner
+    runner = Tests::DynamicTestRunner.new(discovered_page)
+    runner.run_test(test_key)
   rescue => e
     Rails.logger.error "  ✗ Test #{test_key} failed: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
     # Create a not_applicable result for failed tests
+    test = Test.find_by(test_key: test_key)
+    test_category = test&.test_group&.name&.downcase&.gsub(/\s+/, "_") || "general"
+
     TestResult.create!(
       discovered_page: discovered_page,
       audit: discovered_page.audit,
       test_key: test_key,
-      test_category: "general",
+      test_category: test_category,
       status: "not_applicable",
-      summary: "Test failed: #{e.message}",
-      details: { error: e.message }
+      summary: "Test failed: #{e.message}"
     )
   end
 end

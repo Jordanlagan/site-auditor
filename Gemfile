@@ -29,8 +29,9 @@ gem "bootsnap", require: false
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 gem "rack-cors"
 
-# OpenAI for intelligent audit decisions
+# AI for intelligent audit decisions
 gem "ruby-openai"
+gem "anthropic", "~> 1.17"
 
 # HTML/XML parsing
 gem "nokogiri"

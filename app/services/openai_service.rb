@@ -2,51 +2,98 @@
 
 class OpenaiService
   class << self
-    def client
-      @client ||= OpenAI::Client.new(
+    def client(provider: "claude")
+      case provider
+      when "claude"
+        claude_client
+      when "openai"
+        openai_client
+      else
+        claude_client # Default to Claude
+      end
+    end
+
+    def claude_client
+      @claude_client ||= Anthropic::Client.new(
+        api_key: ENV.fetch("ANTHROPIC_API_KEY", Rails.application.credentials.dig(:anthropic, :api_key))
+      )
+    end
+
+    def openai_client
+      @openai_client ||= OpenAI::Client.new(
         access_token: ENV.fetch("OPENAI_API_KEY", Rails.application.credentials.dig(:openai, :api_key)),
         log_errors: true
       )
     end
 
-    def chat(messages:, model: "gpt-4o-mini", temperature: 0.7, max_tokens: 1500)
-      response = client.chat(
-        parameters: {
+    def chat(messages:, model: "claude-3-5-sonnet-20241022", temperature: 0.7, max_tokens: 1500)
+      provider = model.start_with?("claude") ? "claude" : "openai"
+
+      if provider == "claude"
+        # Extract system message if present (Claude requires it as a separate parameter)
+        system_message = messages.find { |m| m[:role] == "system" || m["role"] == "system" }
+        user_messages = messages.reject { |m| m[:role] == "system" || m["role"] == "system" }
+
+        params = {
           model: model,
-          messages: messages,
+          messages: user_messages,
           temperature: temperature,
           max_tokens: max_tokens
         }
-      )
+        params[:system] = system_message[:content] || system_message["content"] if system_message
 
-      response.dig("choices", 0, "message", "content")
+        response = claude_client.messages.create(**params)
+        response.content[0].text
+      else
+        response = openai_client.chat(
+          parameters: {
+            model: model,
+            messages: messages,
+            temperature: temperature,
+            max_tokens: max_tokens
+          }
+        )
+        response.dig("choices", 0, "message", "content")
+      end
     rescue StandardError => e
-      Rails.logger.error("OpenAI API Error: #{e.message}")
+      Rails.logger.error("AI API Error: #{e.message}")
       nil
     end
 
-    def analyze_with_json(system_prompt:, user_prompt:, model: "gpt-4o-mini")
-      messages = [
-        { role: "system", content: system_prompt },
-        { role: "user", content: user_prompt }
-      ]
+    def analyze_with_json(system_prompt:, user_prompt:, model: "claude-3-5-sonnet-20241022")
+      provider = model.start_with?("claude") ? "claude" : "openai"
 
-      response = client.chat(
-        parameters: {
+      if provider == "claude"
+        response = claude_client.messages.create(
           model: model,
-          messages: messages,
-          temperature: 0.3, # Lower for more consistent JSON
-          response_format: { type: "json_object" }
-        }
-      )
+          system: system_prompt,
+          messages: [ { role: "user", content: user_prompt } ],
+          temperature: 0.3
+        )
+        content = response.content[0].text
+      else
+        messages = [
+          { role: "system", content: system_prompt },
+          { role: "user", content: user_prompt }
+        ]
 
-      content = response.dig("choices", 0, "message", "content")
+        response = openai_client.chat(
+          parameters: {
+            model: model,
+            messages: messages,
+            temperature: 0.3,
+            response_format: { type: "json_object" }
+          }
+        )
+        content = response.dig("choices", 0, "message", "content")
+      end
+
       JSON.parse(content) if content
     rescue JSON::ParserError => e
-      Rails.logger.error("Failed to parse OpenAI JSON response: #{e.message}")
+      Rails.logger.error("Failed to parse AI JSON response: #{e.message}")
       nil
     rescue StandardError => e
-      Rails.logger.error("OpenAI API Error: #{e.message}")
+      Rails.logger.error("AI API Error: #{e.message}")
       nil
     end
   end

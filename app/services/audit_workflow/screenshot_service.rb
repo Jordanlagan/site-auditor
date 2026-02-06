@@ -110,7 +110,8 @@ module AuditWorkflow
 
       Puppeteer.launch(**launch_options) do |browser|
         browser_page = browser.new_page
-        browser_page.viewport = Puppeteer::Viewport.new(width: width, height: height)
+        # Set viewport width but allow full height for proper full-page capture
+        browser_page.viewport = Puppeteer::Viewport.new(width: width, height: 1080)
 
         # Navigate to page with timeout
         browser_page.goto(page.url, wait_until: "networkidle2", timeout: 30_000)
@@ -120,12 +121,15 @@ module AuditWorkflow
 
         # Scroll to bottom to trigger lazy loading
         browser_page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
-        sleep 0.5
+        sleep 1
         browser_page.evaluate("() => window.scrollTo(0, 0)")
-        sleep 0.5
+        sleep 1
 
-        # Take full page screenshot
-        browser_page.screenshot(path: filepath.to_s, full_page: true)
+        # Take full page screenshot - full_page:true will capture entire page height
+        browser_page.screenshot(
+          path: filepath.to_s,
+          full_page: true
+        )
       end
 
       "/screenshots/#{filename}"

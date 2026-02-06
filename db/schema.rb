@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_01_30_000002) do
+ActiveRecord::Schema[7.2].define(version: 2026_02_04_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -58,20 +58,12 @@ ActiveRecord::Schema[7.2].define(version: 2026_01_30_000002) do
   create_table "audits", force: :cascade do |t|
     t.string "url", null: false
     t.string "status", default: "pending", null: false
-    t.integer "overall_score"
-    t.jsonb "category_scores", default: {}
-    t.jsonb "raw_results", default: {}
-    t.text "summary"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "workflow_state", default: "initializing"
     t.string "current_phase"
-    t.integer "discovered_pages_count", default: 0
-    t.integer "priority_pages_count", default: 0
-    t.integer "questions_answered", default: 0
-    t.jsonb "ai_decisions", default: {}
     t.string "audit_mode", default: "single_page"
     t.jsonb "ai_config", default: {}
+    t.integer "test_ids", default: [], array: true
     t.index ["created_at"], name: "index_audits_on_created_at"
     t.index ["status"], name: "index_audits_on_status"
     t.index ["url"], name: "index_audits_on_url"
@@ -135,18 +127,23 @@ ActiveRecord::Schema[7.2].define(version: 2026_01_30_000002) do
     t.index ["discovered_page_id"], name: "index_page_screenshots_on_discovered_page_id"
   end
 
+  create_table "test_groups", force: :cascade do |t|
+    t.string "name", null: false
+    t.text "description"
+    t.string "color", default: "#6366f1"
+    t.boolean "active", default: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_test_groups_on_name", unique: true
+  end
+
   create_table "test_results", force: :cascade do |t|
     t.bigint "discovered_page_id", null: false
     t.bigint "audit_id", null: false
     t.string "test_key", null: false
     t.string "test_category"
     t.string "status", null: false
-    t.integer "score"
     t.text "summary"
-    t.jsonb "details"
-    t.text "ai_reasoning"
-    t.text "recommendation"
-    t.integer "priority"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["audit_id", "status"], name: "index_test_results_on_audit_id_and_status"
@@ -154,6 +151,21 @@ ActiveRecord::Schema[7.2].define(version: 2026_01_30_000002) do
     t.index ["audit_id"], name: "index_test_results_on_audit_id"
     t.index ["discovered_page_id", "test_key"], name: "index_test_results_on_discovered_page_id_and_test_key", unique: true
     t.index ["discovered_page_id"], name: "index_test_results_on_discovered_page_id"
+  end
+
+  create_table "tests", force: :cascade do |t|
+    t.bigint "test_group_id", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.string "test_key", null: false
+    t.text "test_details", null: false
+    t.jsonb "data_sources", default: [], null: false
+    t.boolean "active", default: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_tests_on_active"
+    t.index ["test_group_id"], name: "index_tests_on_test_group_id"
+    t.index ["test_key"], name: "index_tests_on_test_key", unique: true
   end
 
   add_foreign_key "adaptive_tests", "discovered_pages"
@@ -165,4 +177,5 @@ ActiveRecord::Schema[7.2].define(version: 2026_01_30_000002) do
   add_foreign_key "page_screenshots", "discovered_pages"
   add_foreign_key "test_results", "audits"
   add_foreign_key "test_results", "discovered_pages"
+  add_foreign_key "tests", "test_groups"
 end

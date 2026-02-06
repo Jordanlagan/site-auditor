@@ -4,6 +4,9 @@ class Audit < ApplicationRecord
   has_many :audit_questions, dependent: :destroy
   has_many :test_results, dependent: :destroy
 
+  # Serialize test_ids as array
+  attribute :test_ids, :integer, array: true, default: []
+
   # Audit modes
   MODES = %w[single_page full_crawl].freeze
 
@@ -13,13 +16,9 @@ class Audit < ApplicationRecord
   # Phases for full_crawl mode
   PHASES = %w[crawling prioritizing collecting testing synthesizing].freeze
 
-  # Test categories
-  CATEGORIES = %w[nav structure cro design reviews price speed].freeze
-
   validates :url, presence: true, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]) }
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :audit_mode, inclusion: { in: MODES }
-  validates :overall_score, numericality: { only_integer: true, greater_than_or_equal_to: 0, less_than_or_equal_to: 100 }, allow_nil: true
 
   before_validation :normalize_url, if: :url_changed?
   before_validation :set_default_mode, on: :create
@@ -68,45 +67,27 @@ class Audit < ApplicationRecord
     status == "failed"
   end
 
-  # Calculate overall score from test results
-  def calculate_overall_score!
-    results = test_results.where.not(status: "not_applicable")
-    return if results.empty?
-
-    passed_count = results.where(status: "passed").count
-    total_count = results.count
-
-    self.overall_score = ((passed_count.to_f / total_count) * 100).round
-    save
+  # Test count helpers
+  def total_tests_count
+    test_results.count
   end
 
-  # Get category scores
-  def category_scores
-    scores = {}
-    CATEGORIES.each do |category|
-      category_results = test_results.where(test_category: category).where.not(status: "not_applicable")
-      next if category_results.empty?
-
-      passed = category_results.where(status: "passed").count
-      total = category_results.count
-      scores[category] = ((passed.to_f / total) * 100).round
-    end
-    scores
-  end
-
-  # Get failed tests count
-  def failed_tests_count
-    test_results.where(status: "failed").count
-  end
-
-  # Get warning tests count
-  def warning_tests_count
-    test_results.where(status: "warning").count
-  end
-
-  # Get passed tests count
   def passed_tests_count
-    test_results.where(status: "passed").count
+    test_results.passed.count
+  end
+
+  def failed_tests_count
+    test_results.failed.count
+  end
+
+  def pass_rate
+    return 0 if total_tests_count.zero?
+    (passed_tests_count.to_f / total_tests_count * 100).round
+  end
+
+  # Get warning tests count (keeping for compatibility)
+  def warning_tests_count
+    0 # We don't have warnings anymore
   end
 
   private

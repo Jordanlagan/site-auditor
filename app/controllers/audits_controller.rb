@@ -41,12 +41,8 @@ class AuditsController < ApplicationController
       status: audit.status,
       audit_mode: audit.audit_mode,
       current_phase: audit.current_phase,
-      discovered_pages_count: audit.discovered_pages_count,
-      priority_pages_count: audit.priority_pages_count,
-      overall_score: audit.overall_score,
       tests_passed: audit.passed_tests_count,
-      tests_failed: audit.failed_tests_count,
-      tests_warning: audit.warning_tests_count,
+      tests_total: audit.total_tests_count,
       created_at: audit.created_at,
       updated_at: audit.updated_at
     }
@@ -71,7 +67,8 @@ class AuditsController < ApplicationController
           id: audit.id,
           url: audit.url,
           status: audit.status,
-          overall_score: audit.overall_score,
+          passed_tests: audit.passed_tests_count,
+          total_tests: audit.total_tests_count,
           created_at: audit.created_at,
           updated_at: audit.updated_at
         }
@@ -92,7 +89,7 @@ class AuditsController < ApplicationController
   private
 
   def audit_params
-    params.require(:audit).permit(:url, :audit_mode, ai_config: [ :systemPrompt, :temperature, :model ])
+    params.require(:audit).permit(:url, :audit_mode, test_ids: [], ai_config: [ :systemPrompt, :temperature, :model ])
   end
 
   def format_audit_response(audit)
@@ -102,34 +99,18 @@ class AuditsController < ApplicationController
       status: audit.status,
       audit_mode: audit.audit_mode,
       current_phase: audit.current_phase,
-      overall_score: audit.overall_score,
-      category_scores: audit.category_scores,
+      passed_tests: audit.passed_tests_count,
+      total_tests: audit.total_tests_count,
+      pass_rate: audit.pass_rate,
       created_at: audit.created_at,
-      updated_at: audit.updated_at,
-      discovered_pages_count: audit.discovered_pages_count,
-      priority_pages_count: audit.priority_pages_count
+      updated_at: audit.updated_at
     }
-
-    # For full_crawl mode, include all discovered pages
-    if audit.full_crawl_mode?
-      response[:all_pages] = audit.discovered_pages.includes(:page_data).map do |page|
-        {
-          id: page.id,
-          url: page.url,
-          page_type: page.page_type,
-          is_priority_page: page.is_priority_page,
-          data_collection_status: page.data_collection_status,
-          testing_status: page.testing_status,
-          priority_score: page.priority_score
-        }
-      end
-    end
 
     # Include test results if complete
     if audit.complete?
       primary_page = audit.discovered_pages.first
       if primary_page
-        response[:test_results] = format_test_results(primary_page)
+        response[:test_results] = format_test_results_list(audit)
         response[:pages] = [ {
           id: primary_page.id,
           url: primary_page.url,
@@ -191,5 +172,19 @@ class AuditsController < ApplicationController
     end
 
     results_by_category
+  end
+
+  def format_test_results_list(audit)
+    audit.test_results.includes(:test).map do |result|
+      test = result.test
+      {
+        id: result.id,
+        test_key: result.test_key,
+        test_name: result.human_test_name,
+        status: result.status,
+        summary: result.summary,
+        data_sources: test&.data_sources || []
+      }
+    end
   end
 end

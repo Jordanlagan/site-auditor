@@ -3,6 +3,8 @@ import './App.css'
 import './insights.css'
 import './test-results.css'
 import './test-json-details.css'
+import './test-selection.css'
+import './lightbox.css'
 
 function App() {
   const [url, setUrl] = useState('')
@@ -20,13 +22,69 @@ function App() {
   const [aiPrompts, setAiPrompts] = useState({
     systemPrompt: `You are an expert website auditor analyzing conversion optimization, user experience, design quality, and technical performance. Provide actionable, specific feedback.`,
     temperature: 0.3,
-    model: 'gpt-4o'
+    model: 'claude-sonnet-4-5'
   })
+  const [testGroups, setTestGroups] = useState([])
+  const [tests, setTests] = useState([])
+  const [selectedTests, setSelectedTests] = useState([])
+  const [showTestSelection, setShowTestSelection] = useState(false)
+  const [lightboxImage, setLightboxImage] = useState(null)
+
+  // Data source icon getter (matching TestLibrary exactly)
+  const getDataSourceIcon = (source) => {
+    const icons = {
+      'page_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v8h8V4H4zm2 2h4v1H6V6zm0 2h4v1H6V8z"/></svg>',
+      'html_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3l-3 3 3 3V7h6v2l3-3-3-3v2H5V3z"/></svg>',
+      'screenshots': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2.5"/></svg>',
+      'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-weight="bold">H</text></svg>',
+      'meta_tags': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h4l2 5 2-5h4L12 13h-2L8 8l-2 5H4L3 3z"/></svg>',
+      'meta_title': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h4l2 5 2-5h4L12 13h-2L8 8l-2 5H4L3 3z"/></svg>',
+      'meta_description': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h4l2 5 2-5h4L12 13h-2L8 8l-2 5H4L3 3z"/></svg>',
+      'structured_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2V4zm0 4h12v2H2V8zm0 4h12v2H2v-2z"/></svg>',
+      'fonts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-style="italic">A</text></svg>',
+      'colors': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="5" r="3" fill="#CE6262"/><circle cx="11" cy="5" r="3" fill="#4A9EFF"/><circle cx="8" cy="10" r="3" fill="#62CE8B"/></svg>',
+      'images': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="6.5" r="1.5"/><path d="M2 11l3-3 2 2 4-4 3 3v2H2z"/></svg>',
+      'scripts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 5l4 3-4 3V5zm6 0v6h2V5h-2z"/></svg>',
+      'stylesheets': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v2H3V2zm0 4h10v2H3V6zm0 4h6v2H3v-2z"/></svg>',
+      'performance_metrics': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
+      'asset_distribution': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2V4zm0 4h12v2H2V8zm0 4h12v2H2v-2z"/></svg>',
+      'total_page_weight': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
+      'links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>',
+      'computed_styles': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2l6 4v6l-6 4-6-4V6l6-4zm0 2L4 6.5v3L8 12l4-2.5v-3L8 4z"/></svg>'
+    };
+    return icons[source] || '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>';
+  };
+
+  const sourceLabels = {
+    'page_content': 'Page Content',
+    'html_content': 'HTML Content',
+    'screenshots': 'Screenshots',
+    'headings': 'Headings',
+    'meta_tags': 'Meta Tags',
+    'meta_title': 'Meta Title',
+    'meta_description': 'Meta Description',
+    'structured_data': 'Structured Data',
+    'fonts': 'Fonts',
+    'colors': 'Colors',
+    'images': 'Images',
+    'scripts': 'Scripts',
+    'stylesheets': 'Stylesheets',
+    'performance_metrics': 'Performance Metrics',
+    'asset_distribution': 'Asset Distribution',
+    'total_page_weight': 'Total Page Weight',
+    'links': 'Links',
+    'computed_styles': 'Computed Styles'
+  };
+
+  const [expandedTests, setExpandedTests] = useState({})
+  const [loadingAudit, setLoadingAudit] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(true)
 
   const API_BASE = 'http://localhost:3000'
 
   useEffect(() => {
     loadAuditHistory()
+    loadTests()
   }, [])
 
   const loadAuditHistory = async () => {
@@ -36,6 +94,50 @@ function App() {
       setAudits(data.audits || [])
     } catch (err) {
       console.error('Failed to load audit history', err)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const loadTests = async () => {
+    try {
+      const [groupsRes, testsRes] = await Promise.all([
+        fetch(`${API_BASE}/test-groups`),
+        fetch(`${API_BASE}/tests`)
+      ])
+      const groupsData = await groupsRes.json()
+      const testsData = await testsRes.json()
+      
+      setTestGroups(groupsData.test_groups || [])
+      setTests(testsData.tests || [])
+      
+      // Pre-select all active tests by default
+      const activeTestIds = (testsData.tests || [])
+        .filter(t => t.active)
+        .map(t => t.id)
+      setSelectedTests(activeTestIds)
+    } catch (err) {
+      console.error('Failed to load tests', err)
+    }
+  }
+
+  const toggleTestSelection = (testId) => {
+    setSelectedTests(prev => 
+      prev.includes(testId) 
+        ? prev.filter(id => id !== testId)
+        : [...prev, testId]
+    )
+  }
+
+  const toggleGroupSelection = (groupId) => {
+    const groupTests = tests.filter(t => t.test_group.id === groupId)
+    const groupTestIds = groupTests.map(t => t.id)
+    const allSelected = groupTestIds.every(id => selectedTests.includes(id))
+    
+    if (allSelected) {
+      setSelectedTests(prev => prev.filter(id => !groupTestIds.includes(id)))
+    } else {
+      setSelectedTests(prev => [...new Set([...prev, ...groupTestIds])])
     }
   }
 
@@ -53,7 +155,8 @@ function App() {
           audit: { 
             url,
             audit_mode: fullCrawl ? 'full_crawl' : 'single_page',
-            ai_config: aiPrompts
+            ai_config: aiPrompts,
+            test_ids: selectedTests
           } 
         }),
       })
@@ -119,6 +222,7 @@ function App() {
   }
 
   const loadAudit = async (auditId) => {
+    setLoadingAudit(true)
     try {
       const response = await fetch(`${API_BASE}/audits/${auditId}`)
       const data = await response.json()
@@ -128,6 +232,8 @@ function App() {
       setSelectedPageId(data.all_pages?.[0]?.id || null)
     } catch (err) {
       setError('Failed to load audit')
+    } finally {
+      setLoadingAudit(false)
     }
   }
 
@@ -135,23 +241,27 @@ function App() {
     e.stopPropagation()
     if (!confirm('Delete this audit?')) return
 
+    // Start animation
     setDeletingAudits(prev => [...prev, auditId])
 
-    try {
-      await fetch(`${API_BASE}/audits/${auditId}`, { method: 'DELETE' })
-      
-      if (currentAudit?.id === auditId) {
-        setCurrentAudit(null)
-        setUrl('')
-      }
-      
-      setTimeout(() => {
+    // Wait for animation to complete
+    setTimeout(async () => {
+      try {
+        await fetch(`${API_BASE}/audits/${auditId}`, { method: 'DELETE' })
+        
+        if (currentAudit?.id === auditId) {
+          setCurrentAudit(null)
+          setUrl('')
+        }
+        
+        // Remove from state immediately
+        setAudits(prev => prev.filter(a => a.id !== auditId))
         setDeletingAudits(prev => prev.filter(id => id !== auditId))
-        loadAuditHistory()
-      }, 1000)
-    } catch (err) {
-      setError('Failed to delete audit')
-    }
+      } catch (err) {
+        setError('Failed to delete audit')
+        setDeletingAudits(prev => prev.filter(id => id !== auditId))
+      }
+    }, 400)
   }
 
   const startNewAudit = () => {
@@ -167,6 +277,31 @@ function App() {
       ...prev,
       [category]: !prev[category]
     }))
+  }
+
+  const toggleTestExpanded = (testId) => {
+    setExpandedTests(prev => ({ ...prev, [testId]: !prev[testId] }))
+  }
+
+  const openLightbox = (imageSrc, label) => {
+    setLightboxImage({ src: imageSrc, label })
+  }
+
+  const closeLightbox = () => {
+    setLightboxImage(null)
+  }
+
+  const copyPageData = () => {
+    if (currentAudit?.pages?.[0]?.page_data) {
+      const dataString = JSON.stringify(currentAudit.pages[0].page_data, null, 2)
+      navigator.clipboard.writeText(dataString)
+        .then(() => alert('Page data copied to clipboard!'))
+        .catch(() => alert('Failed to copy to clipboard'))
+    }
+  }
+
+  const getPassRateColor = (passRate) => {
+    return passRate >= 50 ? '#19C798' : '#CE6262'
   }
 
   const getScoreColor = (score) => {
@@ -210,32 +345,40 @@ function App() {
 
         <div className="audit-history">
           <div className="history-label">Recent Audits</div>
-          {audits.map((audit) => (
-            <div
-              key={audit.id}
-              className={`history-item ${currentAudit?.id === audit.id ? 'active' : ''} ${deletingAudits.includes(audit.id) ? 'deleting' : ''}`}
-              onClick={() => !deletingAudits.includes(audit.id) && loadAudit(audit.id)}
-            >
-              <div className="history-item-content">
-                <div className="history-item-url">{new URL(audit.url).hostname}</div>
-                <div className="history-item-meta">
-                  {audit.status === 'complete' && audit.overall_score && (
-                    <span className="history-score" style={{ color: getScoreColor(audit.overall_score) }}>
-                      {audit.overall_score}
-                    </span>
-                  )}
-                  <span className="history-date">{formatDate(audit.created_at)}</span>
-                </div>
-              </div>
-              <button
-                className="delete-btn"
-                onClick={(e) => deleteAudit(audit.id, e)}
-                title="Delete"
-              >
-                ×
-              </button>
+          {loadingHistory ? (
+            <div className="sidebar-loading">
+              <div className="spinner-small"></div>
             </div>
-          ))}
+          ) : audits.length === 0 ? (
+            <div className="no-audits">No audits yet</div>
+          ) : (
+            audits.map((audit) => (
+              <div
+                key={audit.id}
+                className={`history-item ${currentAudit?.id === audit.id ? 'active' : ''} ${deletingAudits.includes(audit.id) ? 'deleting' : ''}`}
+                onClick={() => !deletingAudits.includes(audit.id) && loadAudit(audit.id)}
+              >
+                <div className="history-item-content">
+                  <div className="history-item-url">{new URL(audit.url).hostname}</div>
+                  <div className="history-item-meta">
+                    {audit.status === 'complete' && audit.total_tests > 0 && (
+                      <span className="history-tests" style={{ color: getPassRateColor((audit.passed_tests / audit.total_tests) * 100) }}>
+                        {audit.passed_tests}/{audit.total_tests} passed
+                      </span>
+                    )}
+                    <span className="history-date">{formatDate(audit.created_at)}</span>
+                  </div>
+                </div>
+                <button
+                  className="delete-btn"
+                  onClick={(e) => deleteAudit(audit.id, e)}
+                  title="Delete"
+                >
+                  ×
+                </button>
+              </div>
+            ))
+          )}
         </div>
 
         <button 
@@ -249,6 +392,7 @@ function App() {
       {/* Main Content */}
       <main className="main-content">
         <div className="content-wrapper">
+          <div className="content-inner">
           {!currentAudit ? (
             // Input Form
             <div className="input-section">
@@ -259,7 +403,7 @@ function App() {
                 className="config-toggle"
                 onClick={() => setShowPromptConfig(!showPromptConfig)}
               >
-                {showPromptConfig ? '− Hide' : '+ Configure'} AI Settings
+                {showPromptConfig ? '−' : '+'} {showPromptConfig ? 'Hide' : 'Configure'} AI Settings
               </button>
 
               {showPromptConfig && (
@@ -282,9 +426,17 @@ function App() {
                         onChange={(e) => setAiPrompts({...aiPrompts, model: e.target.value})}
                         className="model-select"
                       >
-                        <option value="gpt-4o">GPT-4o</option>
-                        <option value="gpt-4o-mini">GPT-4o Mini</option>
-                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        <optgroup label="Claude (Anthropic)">
+                          <option value="claude-sonnet-4-5">Claude Sonnet 4.5 (Default)</option>
+                          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                          <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                          <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                        </optgroup>
+                        <optgroup label="GPT (OpenAI)">
+                          <option value="gpt-4o">GPT-4o</option>
+                          <option value="gpt-4o-mini">GPT-4o Mini</option>
+                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        </optgroup>
                       </select>
                     </label>
                     
@@ -324,6 +476,64 @@ function App() {
                     <span>Full site crawl</span>
                   </label>
                 </div>
+
+                {/* Test Selection */}
+                <div className="test-selection-section">
+                  <div className="test-selection-header">
+                    <h3>
+                      Select Tests to Run {tests.length === 0 ? (
+                        <span className="spinner-small inline-spinner"></span>
+                      ) : (
+                        `(${selectedTests.length} selected)`
+                      )}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowTestSelection(!showTestSelection)}
+                      className="toggle-tests-btn"
+                    >
+                      {showTestSelection ? '− Collapse' : '+ Expand'}
+                    </button>
+                  </div>
+
+                  {showTestSelection && (
+                    <div className="test-selection-grid">
+                      {testGroups.map(group => {
+                        const groupTests = tests.filter(t => t.test_group.id === group.id)
+                        const selectedCount = groupTests.filter(t => selectedTests.includes(t.id)).length
+                        const allSelected = groupTests.length > 0 && selectedCount === groupTests.length
+
+                        return (
+                          <div key={group.id} className="test-group-card">
+                            <div className="test-group-header">
+                              <label className="group-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={allSelected}
+                                  onChange={() => toggleGroupSelection(group.id)}
+                                />
+                                <span className="group-name">{group.name}</span>
+                                <span className="group-count">({selectedCount}/{groupTests.length})</span>
+                              </label>
+                            </div>
+                            <div className="test-group-tests">
+                              {groupTests.map(test => (
+                                <label key={test.id} className="test-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedTests.includes(test.id)}
+                                    onChange={() => toggleTestSelection(test.id)}
+                                  />
+                                  <span className="test-name">{test.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
                 
                 <button
                   type="submit"
@@ -348,6 +558,12 @@ function App() {
                 </div>
               )}
             </div>
+          ) : loadingAudit ? (
+            // Loading State for Audit
+            <div className="loading-state">
+              <div className="spinner"></div>
+              <p className="loading-text">Loading audit...</p>
+            </div>
           ) : (
             // Results View
             <div className="results-section">
@@ -360,30 +576,65 @@ function App() {
                 </div>
                 
                 <div className="results-score">
-                  <div className="score-circle" style={{ borderColor: getScoreColor(currentAudit.overall_score) }}>
-                    <div className="score-value">{currentAudit.overall_score}</div>
-                    <div className="score-label">Score</div>
+                  <div className="pass-rate-display" style={{ color: getPassRateColor(currentAudit.pass_rate) }}>
+                    <div className="pass-rate-text">{currentAudit.passed_tests}/{currentAudit.total_tests} tests passed</div>
                   </div>
                 </div>
-              </div>
-
-              {/* Category Scores */}
-              <div className="category-scores">
-                {Object.entries(currentAudit.category_scores || {}).map(([category, score]) => (
-                  <div key={category} className="category-score-card">
-                    <div className="category-info">
-                      <div className="category-name">{category.replace('_', ' ').toUpperCase()}</div>
-                      <div className="category-score" style={{ color: getScoreColor(score) }}>
-                        {score}%
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
 
               {/* Test Results */}
               <div className="test-results">
                 <h2>Test Results</h2>
+                
+                {/* Test Results List */}
+                {!currentAudit.test_results || currentAudit.test_results.length === 0 ? (
+                  <div className="section-loading">
+                    <div className="spinner-small"></div>
+                    <p>Loading test results...</p>
+                  </div>
+                ) : (
+                  <div className="tests-list">
+                    {currentAudit.test_results.map((test) => (
+                      <div key={test.id} className={`test-item test-${test.status}`}>
+                        <div 
+                          className="test-header"
+                          onClick={() => toggleTestExpanded(test.id)}
+                        >
+                          <div className="test-info">
+                            <div className="test-status-badge">{test.status.toUpperCase() == "NOT_APPLICABLE" ? (
+                              "N/A"
+                            ) : (
+                              test.status.toUpperCase()
+                            )}</div>
+                            <div className="test-name">{test.test_name}</div>
+                          </div>
+                          <span className={`expand-icon ${expandedTests[test.id] ? 'expanded' : ''}`}>+</span>
+                        </div>
+                        
+                        {expandedTests[test.id] && (
+                          <div className="test-details-expanded">
+                            <div className="test-summary">{test.summary}</div>
+                            {test.data_sources && test.data_sources.length > 0 && (
+                              <div className="data-sources">
+                                <span className="data-sources-label">Data Sources:</span>
+                                <div className="data-source-icons">
+                                  {test.data_sources.map((source) => (
+                                    <span 
+                                      key={source} 
+                                      className="data-source-icon"
+                                      title={sourceLabels[source] || source}
+                                      dangerouslySetInnerHTML={{__html: getDataSourceIcon(source)}}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 
                 {/* Screenshots */}
                 {currentAudit.pages && currentAudit.pages.length > 0 && currentAudit.pages[0].screenshots && (
@@ -391,13 +642,13 @@ function App() {
                     <h3>Page Screenshots</h3>
                     <div className="screenshots-grid">
                       {currentAudit.pages[0].screenshots.desktop && (
-                        <div className="screenshot-item">
+                        <div className="screenshot-item" onClick={() => openLightbox(`http://localhost:3000${currentAudit.pages[0].screenshots.desktop}`, 'Desktop')}>
                           <div className="screenshot-label">Desktop</div>
                           <img src={`http://localhost:3000${currentAudit.pages[0].screenshots.desktop}`} alt="Desktop screenshot" />
                         </div>
                       )}
                       {currentAudit.pages[0].screenshots.mobile && (
-                        <div className="screenshot-item">
+                        <div className="screenshot-item" onClick={() => openLightbox(`http://localhost:3000${currentAudit.pages[0].screenshots.mobile}`, 'Mobile')}>
                           <div className="screenshot-label">Mobile</div>
                           <img src={`http://localhost:3000${currentAudit.pages[0].screenshots.mobile}`} alt="Mobile screenshot" />
                         </div>
@@ -408,57 +659,42 @@ function App() {
                 
                 {/* Page Data Viewer */}
                 {currentAudit.pages && currentAudit.pages.length > 0 && (
-                  <details className="page-data-viewer">
-                    <summary>View Comprehensive Page Details</summary>
+                  <details className="page-data-section">
+                    <summary>
+                      <span className="summary-text">View Comprehensive Page Details</span>
+                      <span className="expand-icon">+</span>
+                    </summary>
                     <div className="page-data-content">
+                      <div className="page-data-header">
+                        <button 
+                          className="copy-data-btn" 
+                          onClick={() => copyPageData()}
+                          title="Copy to clipboard"
+                        >
+                          Copy
+                        </button>
+                      </div>
                       <pre>{JSON.stringify(currentAudit.pages[0].page_data, null, 2)}</pre>
                     </div>
                   </details>
                 )}
-                
-                {currentAudit.test_results && Object.entries(currentAudit.test_results).map(([category, categoryData]) => (
-                  <div key={category} className="category-section">
-                    <div 
-                      className="category-header"
-                      onClick={() => toggleCategory(category)}
-                    >
-                      <div className="category-title">
-                        <h3>{category.replace('_', ' ').toUpperCase()}</h3>
-                        <span className="test-count">
-                          {categoryData.passed} passed, {categoryData.failed} failed, {categoryData.warning} warnings
-                        </span>
-                      </div>
-                      <span className="expand-icon">{expandedCategories[category] ? '−' : '+'}</span>
-                    </div>
-
-                    {expandedCategories[category] && (
-                      <div className="tests-list">
-                        {categoryData.tests.map((test) => (
-                          <div key={test.test_key} className={`test-item test-${test.status}`}>
-                            <div className="test-header">
-                              <div className="test-info">
-                                <div className="test-name">{formatTestName(test.test_name)}</div>
-                                <div className="test-summary">{test.summary}</div>
-                              </div>
-                            </div>
-                            
-                            {test.details && Object.keys(test.details).length > 0 && (
-                              <details className="test-json-details">
-                                <summary>View Full JSON Response</summary>
-                                <pre>{JSON.stringify(test.details, null, 2)}</pre>
-                              </details>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
               </div>
             </div>
           )}
+          </div>
         </div>
       </main>
+
+      {/* Lightbox */}
+      {lightboxImage && (
+        <div className="lightbox-overlay" onClick={closeLightbox}>
+          <button className="lightbox-close" onClick={closeLightbox}>×</button>
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <img src={lightboxImage.src} alt={lightboxImage.label} />
+            <div className="lightbox-label">{lightboxImage.label}</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

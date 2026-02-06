@@ -26,7 +26,13 @@ class PageDataCollector
 
       begin
         driver.navigate.to url
-        sleep 2 # Wait for page load
+        
+        # Scroll to bottom to trigger lazy-loaded content
+        sleep 1 # Initial load
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+        sleep 1 # Wait for lazy content to load
+        driver.execute_script("window.scrollTo(0, 0)") # Scroll back to top
+        sleep 1 # Let any animations settle
 
         # Collect all data
         page_data = PageData.find_or_initialize_by(discovered_page: discovered_page)
@@ -85,10 +91,21 @@ class PageDataCollector
     private
 
     def extract_text_content(driver)
-      driver.find_element(tag_name: "body").text
+      # Wait for body to be present and use innerText for better JS-rendered content
+      wait = Selenium::WebDriver::Wait.new(timeout: 5)
+      wait.until { driver.find_element(tag_name: "body") }
+      
+      # Use JavaScript to get innerText which handles rendered content better
+      text = driver.execute_script("return document.body.innerText || document.body.textContent;")
+      text&.strip || ""
     rescue => e
       Rails.logger.warn "Failed to extract text content: #{e.message}"
-      ""
+      # Fallback to simple text extraction
+      begin
+        driver.find_element(tag_name: "body").text
+      rescue
+        ""
+      end
     end
 
     def collect_fonts(driver)
@@ -312,16 +329,62 @@ class PageDataCollector
     end
 
     def collect_performance_metrics(driver)
+      # Collect all performance-related metrics in one comprehensive object
       metrics = driver.execute_script(<<-JS)
         const navigation = performance.getEntriesByType('navigation')[0];
         const paint = performance.getEntriesByType('paint');
+        const resources = performance.getEntriesByType('resource');
+
+        // Calculate total page weight
+        const totalWeight = resources.reduce((sum, r) => sum + (r.transferSize || 0), 0);
+
+        // Calculate asset distribution
+        const distribution = { images: 0, scripts: 0, css: 0, fonts: 0, other: 0, total: totalWeight };
+        resources.forEach(r => {
+          const size = r.transferSize || 0;
+          if (r.initiatorType === 'img') distribution.images += size;
+          else if (r.initiatorType === 'script') distribution.scripts += size;
+          else if (r.initiatorType === 'css' || r.initiatorType === 'link') distribution.css += size;
+          else if (r.name.match(/\\.(woff2?|ttf|otf|eot)/)) distribution.fonts += size;
+          else distribution.other += size;
+        });
+
+        // Calculate percentages
+        const distributionPercent = {};
+        ['images', 'scripts', 'css', 'fonts', 'other'].forEach(type => {
+          distributionPercent[type + '_percent'] = totalWeight > 0 
+            ? Math.round((distribution[type] / totalWeight) * 100) 
+            : 0;
+        });
 
         return {
+          // Timing metrics
           dom_content_loaded: navigation?.domContentLoadedEventEnd - navigation?.domContentLoadedEventStart,
           load_complete: navigation?.loadEventEnd - navigation?.loadEventStart,
           first_paint: paint.find(p => p.name === 'first-paint')?.startTime,
           first_contentful_paint: paint.find(p => p.name === 'first-contentful-paint')?.startTime,
-          ttfb: navigation?.responseStart - navigation?.requestStart
+          ttfb: navigation?.responseStart - navigation?.requestStart,
+          
+          // Page weight metrics
+          total_page_weight_bytes: totalWeight,
+          total_page_weight_kb: Math.round(totalWeight / 1024),
+          total_page_weight_mb: (totalWeight / (1024 * 1024)).toFixed(2),
+          
+          // Asset distribution (bytes)
+          images_bytes: distribution.images,
+          scripts_bytes: distribution.scripts,
+          css_bytes: distribution.css,
+          fonts_bytes: distribution.fonts,
+          other_bytes: distribution.other,
+          
+          // Asset distribution (percentages)
+          ...distributionPercent,
+          
+          // Resource counts
+          total_resources: resources.length,
+          image_count: resources.filter(r => r.initiatorType === 'img').length,
+          script_count: resources.filter(r => r.initiatorType === 'script').length,
+          css_count: resources.filter(r => r.initiatorType === 'css' || r.initiatorType === 'link').length
         };
       JS
 

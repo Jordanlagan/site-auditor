@@ -1,0 +1,115 @@
+/* Test Selection Styles */
+.test-selection-section {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: var(--neutral-800);
+  border-radius: 8px;
+  border: 1px solid var(--neutral-700);
+}
+
+.test-selection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.test-selection-header h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--neutral-200);
+  margin: 0;
+}
+
+.toggle-tests-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--neutral-500);
+  border-radius: 6px;
+  color: var(--neutral-300);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-tests-btn:hover {
+  background: var(--neutral-700);
+  border-color: var(--neutral-300);
+}
+
+.test-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.test-group-card {
+  background: var(--neutral-700);
+  border: 1px solid var(--neutral-500);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.test-group-header {
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--neutral-500);
+}
+
+.group-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--neutral-100);
+}
+
+.group-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.group-name {
+  flex: 1;
+}
+
+.group-count {
+  font-size: 0.75rem;
+  color: var(--neutral-400);
+  font-weight: 400;
+}
+
+.test-group-tests {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.test-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.test-checkbox:hover {
+  background: var(--neutral-600);
+}
+
+.test-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.test-name {
+  font-size: 0.875rem;
+  color: var(--neutral-200);
+  font-weight: bold;
+}

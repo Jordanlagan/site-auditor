@@ -110,22 +110,33 @@ module AuditWorkflow
 
       Puppeteer.launch(**launch_options) do |browser|
         browser_page = browser.new_page
-        # Set viewport width but allow full height for proper full-page capture
+        # Set viewport - don't constrain height
         browser_page.viewport = Puppeteer::Viewport.new(width: width, height: 1080)
 
         # Navigate to page with timeout
         browser_page.goto(page.url, wait_until: "networkidle2", timeout: 30_000)
 
-        # Wait a bit for any lazy-loaded content
+        # Wait for page to settle
+        sleep 2
+
+        # Scroll down and back up multiple times to trigger all lazy loading
+        browser_page.evaluate("async () => {
+          const distance = 100;
+          const delay = 100;
+
+          while (document.scrollingElement.scrollTop + window.innerHeight < document.scrollingElement.scrollHeight) {
+            document.scrollingElement.scrollBy(0, distance);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+
+          // Scroll back to top
+          document.scrollingElement.scrollTo(0, 0);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }")
+
         sleep 1
 
-        # Scroll to bottom to trigger lazy loading
-        browser_page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
-        sleep 1
-        browser_page.evaluate("() => window.scrollTo(0, 0)")
-        sleep 1
-
-        # Take full page screenshot - full_page:true will capture entire page height
+        # Take full page screenshot
         browser_page.screenshot(
           path: filepath.to_s,
           full_page: true

@@ -45,7 +45,7 @@ module Tests
       context = {}
 
       Rails.logger.info "Building data context for test: #{test.test_key}"
-      
+
       # Collect data silently, only log summary
       data_summary = []
       test.data_sources.each do |source|
@@ -65,7 +65,7 @@ module Tests
           data_summary << "#{source}: #{data.class.name}"
         end
       end
-      
+
       Rails.logger.info "  Data sources: #{data_summary.join(', ')}"
 
       # Always include URL
@@ -78,45 +78,77 @@ module Tests
       return nil unless page_data
 
       case source
+      # Core content sources
       when "page_content"
         page_data.page_content&.first(5000)
-      when "html_content"
+      when "page_html", "html_content" # Support both names
         # Smart HTML trimming - remove inline scripts/styles but keep structure
         trim_html_intelligently(page_data.html_content, max_length: 50000)
+
+      # Structure sources
       when "headings"
         page_data.headings
-      when "meta_title"
-        page_data.meta_title
-      when "meta_description"
-        page_data.meta_description
-      when "meta_tags"
-        page_data.meta_tags
-      when "structured_data"
-        page_data.structured_data
-      when "fonts"
-        page_data.fonts
+
+      # Asset sources - consolidated
+      when "asset_urls"
+        # Combine all asset URLs into one comprehensive list
+        {
+          images: (page_data.images&.first(20) || []).map { |img| { type: "image", src: img["src"], alt: img["alt"] } },
+          scripts: (page_data.scripts&.first(10) || []).map { |s| { type: "script", src: s["src"], async: s["async"], defer: s["defer"] } },
+          stylesheets: (page_data.stylesheets&.first(10) || []).map { |s| { type: "stylesheet", href: s["href"] } },
+          fonts: (page_data.fonts || []).map { |f| { type: "font", href: f["href"] || f["src"], family: f["family"] } }
+        }
+
+      # Link sources - split into internal/external
+      when "internal_links"
+        all_links = page_data.links || []
+        page_url = URI.parse(discovered_page.url)
+        all_links.select { |link|
+          begin
+            link_url = URI.parse(link["href"])
+            link_url.host.nil? || link_url.host == page_url.host
+          rescue
+            true # Assume relative URLs are internal
+          end
+        }.first(30)
+      when "external_links"
+        all_links = page_data.links || []
+        page_url = URI.parse(discovered_page.url)
+        all_links.select { |link|
+          begin
+            link_url = URI.parse(link["href"])
+            link_url.host.present? && link_url.host != page_url.host
+          rescue
+            false
+          end
+        }.first(30)
+
+      # Visual sources
       when "colors"
-        page_data.colors
-      when "images"
-        page_data.images&.first(20)
-      when "scripts"
-        page_data.scripts&.first(10)
-      when "stylesheets"
-        page_data.stylesheets&.first(10)
-      when "performance_metrics"
+        page_data.colors&.first(15)
+      when "screenshots"
+        # Note: Screenshots available but Claude vision API needed for analysis
+        page_data.screenshots
+
+      # Performance sources
+      when "performance_data", "performance_metrics" # Support both names
         page_data.performance_metrics
-      when "asset_distribution"
-        # Legacy support - now included in performance_metrics
-        page_data.performance_metrics || page_data.asset_distribution
-      when "total_page_weight"
-        # Legacy support - now included in performance_metrics
-        if page_data.performance_metrics&.dig('total_page_weight_bytes')
-          page_data.performance_metrics
-        else
-          page_data.total_page_weight_bytes
-        end
+
+      # Legacy support - map old names to new consolidated sources
+      when "fonts", "images", "scripts", "stylesheets"
+        extract_data_source("asset_urls")
       when "links"
-        page_data.links&.first(50)
+        # Return both internal and external if generic "links" requested
+        {
+          internal: extract_data_source("internal_links"),
+          external: extract_data_source("external_links")
+        }
+      when "asset_distribution", "total_page_weight"
+        # Now part of performance_data
+        extract_data_source("performance_data")
+      when "meta_tags", "structured_data", "meta_title", "meta_description"
+        # Deprecated - return nil to indicate not available
+        nil
       else
         nil
       end
@@ -271,14 +303,14 @@ module Tests
       doc = Nokogiri::HTML(html)
 
       # Remove inline scripts (but keep src references)
-      doc.css('script').each do |script|
-        if script['src'].nil? && script.text.length > 100
+      doc.css("script").each do |script|
+        if script["src"].nil? && script.text.length > 100
           script.content = "/* inline script removed */"
         end
       end
 
       # Remove inline styles (but keep external references)
-      doc.css('style').each do |style|
+      doc.css("style").each do |style|
         if style.text.length > 100
           style.content = "/* inline styles removed */"
         end

@@ -24,40 +24,35 @@ const TestBuilder = () => {
   const getDataSourceIcon = (source) => {
     const icons = {
       'page_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v8h8V4H4zm2 2h4v1H6V6zm0 2h4v1H6V8z"/></svg>',
+      'page_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3l-3 3 3 3V7h6v2l3-3-3-3v2H5V3z"/></svg>',
       'html_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3l-3 3 3 3V7h6v2l3-3-3-3v2H5V3z"/></svg>',
       'screenshots': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2.5"/></svg>',
       'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-weight="bold">H</text></svg>',
-      'meta_tags': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h4l2 5 2-5h4L12 13h-2L8 8l-2 5H4L3 3z"/></svg>',
-      'structured_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2V4zm0 4h12v2H2V8zm0 4h12v2H2v-2z"/></svg>',
+      'asset_urls': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2V4zm0 4h12v2H2V8zm0 4h12v2H2v-2z"/></svg>',
       'fonts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-style="italic">A</text></svg>',
       'colors': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="5" r="3" fill="#CE6262"/><circle cx="11" cy="5" r="3" fill="#4A9EFF"/><circle cx="8" cy="10" r="3" fill="#62CE8B"/></svg>',
       'images': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="6.5" r="1.5"/><path d="M2 11l3-3 2 2 4-4 3 3v2H2z"/></svg>',
       'scripts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 5l4 3-4 3V5zm6 0v6h2V5h-2z"/></svg>',
       'stylesheets': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v2H3V2zm0 4h10v2H3V6zm0 4h6v2H3v-2z"/></svg>',
+      'performance_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
       'performance_metrics': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
-      'links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>',
-      'computed_styles': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2l6 4v6l-6 4-6-4V6l6-4zm0 2L4 6.5v3L8 12l4-2.5v-3L8 4z"/></svg>'
+      'internal_links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>',
+      'external_links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11 3h2v2h-2V3zM9 5V3h2v2H9zm2 2V5h2v2h-2zm0 2V7h2v2h-2zm-2 2V9h2v2H9zM3 13h6v-2H5V5h6V3H3v10z"/></svg>',
+      'links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>'
     };
     return icons[source] || '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>';
   };
 
   const availableDataSources = [
-    { value: 'page_content', label: 'Page Content', description: 'Main text content from the page', tooltip: 'PageDataCollector: Extracts all visible text from <body> using Selenium. Gets the rendered text content users actually see.' },
-    { value: 'html_content', label: 'HTML Content', description: 'Raw HTML source code', tooltip: 'PageDataCollector: Captures the full page source HTML using driver.page_source. Includes all tags, attributes, and inline scripts/styles.' },
-    { value: 'screenshots', label: 'Screenshots', description: 'Visual screenshots of the page', tooltip: 'PageDataCollector: Captures full-page screenshots at 1920x1080 (desktop) and 375x667 (mobile) using Selenium, saved as PNG files.' },
-    { value: 'headings', label: 'Headings', description: 'H1, H2, H3, etc. headings structure', tooltip: 'PageDataCollector: Finds all <h1> through <h6> elements and extracts their text content. Returns structured object with arrays for each heading level.' },
-    { value: 'meta_tags', label: 'Meta Tags', description: 'Title, description, and meta tags', tooltip: 'PageDataCollector: Queries all <meta> tags via JavaScript, extracting name/property and content attributes. Includes OpenGraph, Twitter Cards, etc.' },
-    { value: 'structured_data', label: 'Structured Data', description: 'Schema.org markup and JSON-LD', tooltip: 'PageDataCollector: Finds all <script type="application/ld+json"> tags and parses their JSON content. Used for rich snippets and SEO.' },
-    { value: 'fonts', label: 'Fonts', description: 'Font families used on the page', tooltip: 'PageDataCollector: Scans stylesheets for @font-face rules via JavaScript, checks for Google Fonts links, and extracts font-family, weight, and style.' },
-    { value: 'colors', label: 'Colors', description: 'Color palette used on the page', tooltip: 'PageDataCollector: Iterates all elements via JavaScript, gets computed styles for color, backgroundColor, and borderColor. Returns top 20 by usage count.' },
-    { value: 'images', label: 'Images', description: 'Image sources and metadata', tooltip: 'PageDataCollector: Queries all <img> tags via JavaScript. Returns src, alt text, dimensions (naturalWidth/Height), loading attribute, and srcset.' },
-    { value: 'scripts', label: 'Scripts', description: 'JavaScript files loaded', tooltip: 'PageDataCollector: Queries all <script> tags via JavaScript. Returns src URL, type, async/defer attributes, and whether script is inline or external.' },
-    { value: 'stylesheets', label: 'Stylesheets', description: 'CSS files loaded', tooltip: 'PageDataCollector: Queries all <link rel="stylesheet"> tags via JavaScript. Returns href URLs and media query attributes.' },
-    { value: 'performance_metrics', label: 'Performance Metrics', description: 'Page load and performance data', tooltip: 'PageDataCollector: Uses Performance API via JavaScript to get DOM Content Loaded, Load Complete, First Paint, First Contentful Paint, and Time to First Byte.' },
-    { value: 'asset_distribution', label: 'Asset Distribution', description: 'Breakdown of page weight by asset type', tooltip: 'PageDataCollector: Uses Performance API to sum transferSize of resources by type (images, scripts, CSS, fonts, other). Shows weight distribution in bytes.' },
-    { value: 'total_page_weight', label: 'Total Page Weight', description: 'Total size of all page resources', tooltip: 'PageDataCollector: Sums transferSize from all Performance API resources. Returns total page weight in bytes including HTML, CSS, JS, images, fonts.' },
-    { value: 'links', label: 'Links', description: 'Internal and external links', tooltip: 'PageDataCollector: Queries all <a> tags via JavaScript. Returns href, visible text content, rel attribute, and target attribute for each link.' },
-    { value: 'computed_styles', label: 'Computed Styles', description: 'Final CSS styles applied', tooltip: 'PageDataCollector: Uses window.getComputedStyle() to get final rendered CSS values for elements. Shows actual styles after cascade resolution.' }
+    { value: 'page_content', label: 'Page Content', description: 'Main text content from the page', tooltip: 'Extracts all visible text from the rendered page. Gets the content users actually see (up to 5000 chars).' },
+    { value: 'page_html', label: 'Page HTML', description: 'Raw HTML source code', tooltip: 'Captures the full page source HTML with smart trimming - removes verbose inline scripts/styles but keeps structure (up to 50,000 chars).' },
+    { value: 'headings', label: 'Headings', description: 'H1, H2, H3, etc. headings structure', tooltip: 'Extracts all heading elements (H1-H6) with their text content in a structured format.' },
+    { value: 'asset_urls', label: 'Asset URLs', description: 'All site assets (images, scripts, fonts, CSS)', tooltip: 'Consolidated list of all assets: images (with alt text), scripts (with async/defer), stylesheets, and fonts. Up to 20 images, 10 scripts, 10 stylesheets.' },
+    { value: 'performance_data', label: 'Performance Data', description: 'Page speed, weight, and asset distribution', tooltip: 'Comprehensive performance metrics: TTFB, First Paint, FCP, DOM Content Loaded, Load Complete, page weight (bytes/KB/MB), asset distribution (bytes & %), resource counts.' },
+    { value: 'internal_links', label: 'Internal Links', description: 'Links to other pages on the same domain', tooltip: 'Links pointing to the same domain or relative URLs. Includes href, text, rel, and target attributes (up to 30 links).' },
+    { value: 'external_links', label: 'External Links', description: 'Links to external websites', tooltip: 'Links pointing to different domains. Includes href, text, rel, and target attributes (up to 30 links).' },
+    { value: 'colors', label: 'Colors', description: 'Color palette used on the page', tooltip: 'Extracts colors from computed styles (color, backgroundColor, borderColor). Returns top 15 colors by usage count.' },
+    { value: 'screenshots', label: 'Screenshots (Vision API Required)', description: 'Visual screenshots - requires Claude vision', tooltip: 'Desktop (1920x1080) and mobile (375x812) full-page screenshots. Note: Analyzing screenshots requires Claude vision API which is not yet implemented.', disabled: true }
   ];
 
   useEffect(() => {

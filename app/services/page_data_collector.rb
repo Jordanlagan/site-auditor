@@ -26,7 +26,7 @@ class PageDataCollector
 
       begin
         driver.navigate.to url
-        
+
         # Scroll to bottom to trigger lazy-loaded content
         sleep 1 # Initial load
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
@@ -94,7 +94,7 @@ class PageDataCollector
       # Wait for body to be present and use innerText for better JS-rendered content
       wait = Selenium::WebDriver::Wait.new(timeout: 5)
       wait.until { driver.find_element(tag_name: "body") }
-      
+
       # Use JavaScript to get innerText which handles rendered content better
       text = driver.execute_script("return document.body.innerText || document.body.textContent;")
       text&.strip || ""
@@ -352,8 +352,8 @@ class PageDataCollector
         // Calculate percentages
         const distributionPercent = {};
         ['images', 'scripts', 'css', 'fonts', 'other'].forEach(type => {
-          distributionPercent[type + '_percent'] = totalWeight > 0 
-            ? Math.round((distribution[type] / totalWeight) * 100) 
+          distributionPercent[type + '_percent'] = totalWeight > 0#{' '}
+            ? Math.round((distribution[type] / totalWeight) * 100)#{' '}
             : 0;
         });
 
@@ -364,22 +364,22 @@ class PageDataCollector
           first_paint: paint.find(p => p.name === 'first-paint')?.startTime,
           first_contentful_paint: paint.find(p => p.name === 'first-contentful-paint')?.startTime,
           ttfb: navigation?.responseStart - navigation?.requestStart,
-          
+        #{'  '}
           // Page weight metrics
           total_page_weight_bytes: totalWeight,
           total_page_weight_kb: Math.round(totalWeight / 1024),
           total_page_weight_mb: (totalWeight / (1024 * 1024)).toFixed(2),
-          
+        #{'  '}
           // Asset distribution (bytes)
           images_bytes: distribution.images,
           scripts_bytes: distribution.scripts,
           css_bytes: distribution.css,
           fonts_bytes: distribution.fonts,
           other_bytes: distribution.other,
-          
+        #{'  '}
           // Asset distribution (percentages)
           ...distributionPercent,
-          
+        #{'  '}
           // Resource counts
           total_resources: resources.length,
           image_count: resources.filter(r => r.initiatorType === 'img').length,

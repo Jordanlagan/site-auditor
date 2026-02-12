@@ -39,7 +39,7 @@ class PageDataCollector
 
         page_data.update!(
           # HTML & Content
-          html_content: driver.page_source,
+          html_content: clean_html_content(driver.page_source),
           page_content: extract_text_content(driver),
 
           # Assets
@@ -106,6 +106,107 @@ class PageDataCollector
       rescue
         ""
       end
+    end
+
+    def extract_visible_html(driver)
+      # Get HTML of only visible elements (excludes hidden popups, modals, etc.)
+      visible_html = driver.execute_script(<<-JS)
+        function getVisibleHTML(element) {
+          const computedStyle = window.getComputedStyle(element);
+          const isVisible = computedStyle.display !== 'none' &&#{' '}
+                           computedStyle.visibility !== 'hidden' &&#{' '}
+                           computedStyle.opacity !== '0' &&
+                           element.offsetParent !== null;
+        #{'  '}
+          if (!isVisible) return '';
+        #{'  '}
+          let html = '<' + element.tagName.toLowerCase();
+        #{'  '}
+          // Keep important attributes
+          const attrs = ['id', 'class', 'href', 'src', 'alt', 'title', 'role', 'aria-label', 'type', 'name'];
+          for (const attr of attrs) {
+            if (element.hasAttribute(attr)) {
+              html += ' ' + attr + '="' + element.getAttribute(attr) + '"';
+            }
+          }
+          html += '>';
+        #{'  '}
+          // Process children
+          if (element.childNodes.length > 0) {
+            for (const child of element.childNodes) {
+              if (child.nodeType === Node.TEXT_NODE) {
+                const text = child.textContent.trim();
+                if (text) html += text;
+              } else if (child.nodeType === Node.ELEMENT_NODE) {
+                html += getVisibleHTML(child);
+              }
+            }
+          }
+        #{'  '}
+          html += '</' + element.tagName.toLowerCase() + '>';
+          return html;
+        }
+
+        return getVisibleHTML(document.body);
+      JS
+
+      clean_html_content(visible_html || "")
+    rescue => e
+      Rails.logger.warn "Failed to extract visible HTML: #{e.message}"
+      ""
+    end
+
+    def clean_html_content(raw_html)
+      doc = Nokogiri::HTML(raw_html)
+
+      # Remove CONTENT of script tags but keep external script references
+      doc.css("script").each do |script|
+        # If it has a src attribute (external script), keep the tag but empty content
+        # If it's inline script, remove the entire tag
+        if script["src"].nil?
+          script.remove # Remove inline scripts entirely
+        else
+          script.content = "" # Keep external script tags but remove any inline content
+        end
+      end
+
+      # Remove CONTENT of style tags but keep the tag structure
+      doc.css("style").each do |style|
+        style.content = "/* styles removed */"
+      end
+
+      # Remove inline style attributes (these can be massive)
+      doc.css("[style]").each do |el|
+        el.remove_attribute("style")
+      end
+
+      # Remove noscript tags (not useful for analysis)
+      doc.css("noscript").remove
+
+      # Remove SVG content (can be massive paths/data)
+      doc.css("svg").each do |svg|
+        # Keep the svg tag with attributes but remove inner content
+        svg.inner_html = "<!-- svg content removed -->"
+      end
+
+      # Remove iframe content (not useful and can contain large data)
+      doc.css("iframe").each do |iframe|
+        # Keep the tag with src but no content
+        iframe.inner_html = ""
+      end
+
+      # Remove base64 encoded images (these are huge)
+      doc.css("img[src^='data:']").each do |img|
+        img["src"] = "data:image/removed"
+      end
+
+      # Keep: meta tags, link tags (small and useful for understanding page structure)
+      # Keep: All semantic attributes (class, id, data-*, aria-*, role, etc.)
+
+      doc.to_html
+    rescue => e
+      Rails.logger.warn "Failed to clean HTML: #{e.message}"
+      raw_html # Return original if cleaning fails
     end
 
     def collect_fonts(driver)
@@ -397,15 +498,17 @@ class PageDataCollector
     def capture_screenshots(driver)
       screenshots = {}
 
-      # Desktop screenshot
-      driver.manage.window.resize_to(1920, 1080)
+      # Scroll to trigger lazy loading before capturing
+      driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
       sleep 1
-      screenshots[:desktop] = save_screenshot(driver, "desktop")
+      driver.execute_script("window.scrollTo(0, 0)")
+      sleep 0.5
 
-      # Mobile screenshot
-      driver.manage.window.resize_to(375, 667)
-      sleep 1
-      screenshots[:mobile] = save_screenshot(driver, "mobile")
+      # Desktop screenshot using CDP
+      screenshots[:desktop] = capture_full_page_screenshot(driver, "desktop", mobile: false, width: 1920)
+
+      # Mobile screenshot using CDP
+      screenshots[:mobile] = capture_full_page_screenshot(driver, "mobile", mobile: true, width: 375)
 
       screenshots
     rescue => e
@@ -413,17 +516,80 @@ class PageDataCollector
       {}
     end
 
-    def save_screenshot(driver, device_type)
+    def capture_full_page_screenshot(driver, device_type, mobile:, width:)
+      if mobile
+        driver.manage.window.resize_to(375, 812)
+      else
+        driver.manage.window.resize_to(1920, 1080)
+      end
+
+      sleep 0.5
+
+      # Get page dimensions at the CURRENT viewport size (before any resize)
+      dimensions = driver.execute_script(<<~JS)
+        return {
+          width: document.documentElement.scrollWidth,
+          height: Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight
+          ),
+          devicePixelRatio: window.devicePixelRatio || 1
+        };
+      JS
+
+      page_height = dimensions["height"]
+      content_width = width
+
+      # Use CDP to capture full page WITHOUT resizing the viewport
+      # This preserves vh units at their original values
+      screenshot_data = driver.execute_cdp(
+        "Page.captureScreenshot",
+        format: "png",
+        captureBeyondViewport: true,
+        clip: {
+          x: 0,
+          y: 0,
+          width: content_width,
+          height: page_height,
+          scale: 1
+        }
+      )
+
       filename = "#{discovered_page.id}_#{device_type}_#{Time.current.to_i}.png"
       filepath = Rails.root.join("public", "screenshots", filename)
 
       FileUtils.mkdir_p(File.dirname(filepath))
-      driver.save_screenshot(filepath)
+      File.open(filepath, "wb") do |f|
+        f.write(Base64.decode64(screenshot_data["data"]))
+      end
 
       "/screenshots/#{filename}"
     rescue => e
-      Rails.logger.warn "Failed to save screenshot: #{e.message}"
-      nil
+      Rails.logger.warn "CDP screenshot failed for #{device_type}: #{e.message}, falling back to standard method"
+      # Fallback: standard screenshot but clamp vh elements first
+      fallback_standard_screenshot(driver, device_type, width, page_height)
+    end
+
+    def fallback_standard_screenshot(driver, device_type, width, page_height)
+      # Clamp vh-based elements BEFORE resizing
+      driver.execute_script(<<~JS)
+        document.querySelectorAll('*').forEach(el => {
+          const h = window.getComputedStyle(el).height;
+          if (el.offsetHeight >= window.innerHeight * 0.9) {
+            el.style.maxHeight = el.offsetHeight + 'px';
+          }
+        });
+      JS
+
+      driver.manage.window.resize_to(width, page_height)
+      sleep 0.5
+
+      filename = "#{discovered_page.id}_#{device_type}_#{Time.current.to_i}.png"
+      filepath = Rails.root.join("public", "screenshots", filename)
+      FileUtils.mkdir_p(File.dirname(filepath))
+      driver.save_screenshot(filepath)
+
+      "/screenshots/#{filename}"
     end
 
     def get_viewport(driver)

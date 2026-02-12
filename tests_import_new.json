@@ -1,490 +1,101 @@
 [
   {
-    "name": "Navbar features primary conversion goal",
-    "description": "Check if the navbar includes the company's main conversion action (purchase, contact form, booking, etc.)",
-    "test_key": "nav_primary_conversion_goal",
-    "test_details": "Analyze the navigation bar to determine if it prominently features the company's primary conversion goal (e.g., 'Get Started', 'Book Now', 'Contact Us', 'Shop Now', etc.). The CTA should be clearly visible in the navbar.\n\nPass if a clear conversion-focused element exists in the navbar.\nFail if the navbar lacks any conversion-oriented CTA.",
-    "data_sources": ["page_html"],
-    "test_group": "Navigation"
+    "name": "Cross-Linking Between Categories",
+    "description": "Check if the page includes links to other related categories and products",
+    "test_key": "cross_linking_categories",
+    "test_group": "Default",
+    "data_sources": ["page_html", "internal_links", "page_content"],
+    "test_details": "Analyze the page to determine if it includes cross-links to other categories, related products, or complementary content areas.\n\nGood cross-linking indicators:\n- Links to related product categories\n- \"You might also like\" or \"Related products\" sections\n- Category navigation that's visible and accessible\n- Breadcrumb navigation showing hierarchy\n- Footer links to other main categories\n- Internal links within content to related pages\n\nFail if:\n- Page is isolated with no links to other content\n- Only has external links\n- No clear navigation to other sections\n\nPass if there's evidence of intentional cross-linking strategy.",
+    "active": true
   },
   {
-    "name": "All important pages in navbar",
-    "description": "Verify that key pages are accessible from the main navigation",
-    "test_key": "nav_important_pages_present",
-    "test_details": "Check if all critical pages are present in the navbar (e.g., Products/Services, About, Contact, Blog, Pricing, etc.). The navigation should provide easy access to the most important sections of the website.\n\nPass if all expected important pages are accessible.\nFail if critical pages are missing or hard to find.",
+    "name": "Trust Building Elements",
+    "description": "Verify appropriate trust signals like USPs, badges, guarantees, and value propositions",
+    "test_key": "trust_building_elements",
+    "test_group": "Default",
+    "data_sources": ["page_html", "page_content", "screenshots"],
+    "test_details": "Evaluate if the page contains sufficient trust-building elements to establish credibility.\n\nLook for:\n- Unique Selling Propositions (USPs)\n- Trust badges (security, payment, certifications)\n- Money-back guarantees or warranties\n- Clear value propositions\n- Customer testimonials or reviews\n- Security seals\n- Industry certifications or awards\n- Free shipping/returns messaging\n- \"As seen in\" logos\n- Years in business or customer count\n\nPass if: Multiple trust elements are present (3+ different types)\nWarning if: Only 1-2 trust elements found\nFail if: No clear trust signals visible\n\nConsider the page type - homepage should have more than a basic content page.",
+    "active": true
+  },
+  {
+    "name": "Discounts and Promotions Featured",
+    "description": "Check if the website highlights any discounts, sales, or promotional offers",
+    "test_key": "discounts_promotions_featured",
+    "test_group": "Default",
+    "data_sources": ["page_html", "page_content", "screenshots"],
+    "test_details": "Determine if the page prominently features any discounts, sales, or promotional offers.\n\nLook for:\n- Percentage discounts (e.g., \"20% off\")\n- Sale banners or promotional headers\n- Promo code fields or callouts\n- Limited-time offers\n- Free shipping thresholds\n- Bundle deals or package offers\n- \"Sale\" or \"Clearance\" sections\n- Countdown timers for offers\n- Newsletter signup discounts\n- First-time buyer discounts\n\nPass if: Clear promotional offers are featured\nNot Applicable if: This appears to be a service/portfolio site where discounts wouldn't apply\nFail if: E-commerce site with no visible promotions\n\nNote: Absence of promotions is not necessarily bad, but presence can boost conversion.",
+    "active": true
+  },
+  {
+    "name": "Subscription Offering",
+    "description": "Check if the website offers subscription-based products or services",
+    "test_key": "subscription_offering",
+    "test_group": "Ecommerce",
+    "data_sources": ["page_html", "page_content"],
+    "test_details": "Determine if the website offers subscription-based purchasing options.\n\nLook for:\n- \"Subscribe and Save\" options\n- Monthly/annual subscription plans\n- Membership programs\n- Auto-delivery or recurring order options\n- Subscription tiers (Basic, Premium, etc.)\n- \"Subscribe\" CTAs or buttons\n- Subscription management language\n- Recurring billing mentions\n\nPass if: Clear subscription offerings are present\nNot Applicable if: Business model doesn't support subscriptions (one-time service, portfolio site, etc.)\nFail if: E-commerce site that could benefit from subscriptions but doesn't offer them\n\nSubscriptions can increase customer lifetime value significantly.",
+    "active": true
+  },
+  {
+    "name": "Cart Type - Flyout vs Standalone",
+    "description": "Determine if the shopping cart is a flyout overlay or a standalone page",
+    "test_key": "cart_type_implementation",
+    "test_group": "CRO",
+    "data_sources": ["page_html", "page_content"],
+    "test_details": "Analyze the cart implementation to determine if it's a flyout (slide-out/overlay) or standalone page.\n\nFlyout/Drawer cart indicators:\n- Cart drawer or slide-out panel mentions in HTML\n- Overlay or modal cart components\n- \"Add to cart\" without full page navigation\n- Mini-cart or cart preview functionality\n\nStandalone page indicators:\n- Dedicated /cart or /shopping-cart URLs\n- Full-page cart experience\n- Navigation takes users to separate cart page\n\nNote: Flyout carts generally have higher conversion rates as they reduce friction and keep users in shopping mode. Standalone carts can work better for complex purchases.\n\nPass if: Implementation is clear and appropriate for the site type\nProvide analysis of which type is detected and whether it suits the business model.",
+    "active": true
+  },
+  {
+    "name": "Blog and Educational Content",
+    "description": "Check if the website features a blog or educational content section",
+    "test_key": "blog_educational_content",
+    "test_group": "Default",
+    "data_sources": ["page_html", "internal_links", "page_content"],
+    "test_details": "Determine if the website includes a blog or educational content to support SEO and customer education.\n\nLook for:\n- Blog section or blog link in navigation\n- Article or news sections\n- Resource center or knowledge base\n- Guides, tutorials, or how-to content\n- Case studies or success stories\n- FAQ section with substantial content\n- Video library or webinar content\n- Whitepapers or downloadable resources\n\nPass if: Clear blog or educational content section exists\nWarning if: Minimal educational content\nNot Applicable if: Portfolio or personal site where blog isn't expected\nFail if: Business site with no content marketing strategy\n\nBlogs and educational content are crucial for SEO, establishing authority, and nurturing leads.",
+    "active": true
+  },
+  {
+    "name": "Important Pages in Navigation",
+    "description": "Verify that all critical pages are accessible from the main navigation",
+    "test_key": "important_pages_navigation",
+    "test_group": "Default",
     "data_sources": ["page_html", "internal_links"],
-    "test_group": "Navigation"
+    "test_details": "Analyze the navigation structure to ensure all important pages are easily accessible.\n\nFor e-commerce sites, check for:\n- Products/Shop\n- About/About Us\n- Contact\n- Cart\n- Account/Login\n- FAQ/Help\n- Shipping/Returns policies\n\nFor service sites, check for:\n- Services\n- About\n- Contact\n- Portfolio/Work/Case Studies\n- Pricing (if applicable)\n- Blog/Resources\n\nFor SaaS sites, check for:\n- Features/Product\n- Pricing\n- Resources/Docs\n- Login/Sign Up\n- Contact/Support\n\nPass if: All expected pages for the site type are in navigation or clearly accessible\nWarning if: 1-2 important pages are buried or missing\nFail if: Multiple critical pages are not easily accessible\n\nNavigation should reflect the user's expected mental model.",
+    "active": true
   },
   {
-    "name": "Clear visual hierarchy in menu",
-    "description": "Check for visual hierarchy in navigation through styling differences",
-    "test_key": "nav_visual_hierarchy",
-    "test_details": "Analyze the navigation menu for clear visual hierarchy using font size, weight, color, spacing, or other styling techniques. Important items should be emphasized, and there should be clear distinction between primary and secondary navigation elements.\n\nPass if there's obvious visual hierarchy (bolding, sizing, colors).\nFail if all menu items look identical with no hierarchy.",
-    "data_sources": ["page_html"],
-    "test_group": "Navigation"
-  },
-  {
-    "name": "Sticky or accessible menu on scroll",
-    "description": "Verify if the navigation remains accessible when scrolling",
-    "test_key": "nav_sticky_accessible",
-    "test_details": "Check if the navigation menu is sticky (fixed position on scroll) or if there's an easy way to access it while scrolling (e.g., back-to-top button, slide-in menu).\n\nPass if the menu stays visible or is easily accessible.\nFail if the menu disappears and requires scrolling back to top.",
-    "data_sources": ["page_html"],
-    "test_group": "Navigation"
-  },
-  {
-    "name": "Seven or fewer top-level nav items",
-    "description": "Check if the navigation follows the 7±2 rule to avoid overwhelming users",
-    "test_key": "nav_item_count",
-    "test_details": "Count the top-level navigation items (not including dropdown children). Following UX best practices, there should be 7 or fewer main navigation items to prevent cognitive overload.\n\nPass if 7 or fewer top-level items.\nFail if more than 7 top-level items.",
+    "name": "URL Structure Hierarchy",
+    "description": "Check if the URL structure reflects a clear, logical hierarchy",
+    "test_key": "url_structure_hierarchy",
+    "test_group": "Default",
     "data_sources": ["page_html", "internal_links"],
-    "test_group": "Navigation"
+    "test_details": "Evaluate the URL structure to determine if it follows a logical, hierarchical pattern.\n\nGood URL hierarchy examples:\n- /category/subcategory/product\n- /blog/category/post-title\n- /products/category-name\n- /services/service-type\n\nPositive indicators:\n- Clear categorization in URLs\n- Readable, descriptive paths\n- Consistent structure across similar pages\n- Logical depth (not too flat, not too deep)\n- Uses hyphens for word separation\n\nNegative indicators:\n- Random IDs or numbers in URLs\n- Inconsistent structure\n- URLs like /page?id=123\n- Overly complex nested structures (5+ levels)\n- Query parameters for main content\n\nPass if: URLs demonstrate clear hierarchy and organization\nWarning if: Some inconsistencies but generally logical\nFail if: No apparent structure or logic\n\nGood URL structure helps both SEO and user navigation.",
+    "active": true
   },
   {
-    "name": "Menus easy to interact with",
-    "description": "Verify menus are usable on both desktop and mobile devices",
-    "test_key": "nav_interaction_ease",
-    "test_details": "Analyze if menus are designed for easy interaction across devices. Check for touch-friendly sizes on mobile, clear hover states on desktop, and proper dropdown functionality.\n\nPass if menus appear well-designed for multi-device use.\nFail if menus have usability issues (too small, hard to tap, confusing).",
-    "data_sources": ["page_html"],
-    "test_group": "Navigation"
+    "name": "Content Flow and Layout Balance",
+    "description": "Evaluate if content flows well with appropriate imagery and avoids walls of text",
+    "test_key": "content_flow_layout",
+    "test_group": "Default",
+    "data_sources": ["page_html", "page_content", "asset_urls", "screenshots"],
+    "test_details": "Assess whether the content and layout create good reading flow with appropriate visual balance.\n\nGood flow indicators:\n- Short paragraphs (2-4 sentences)\n- Subheadings break up content sections\n- Images interspersed throughout content\n- White space between sections\n- Mix of text and visual elements\n- Lists or bullet points for scannability\n- Clear visual hierarchy\n- Appropriate image-to-text ratio for brand type\n\nWarning signs:\n- Large blocks of unbroken text (walls of text)\n- No images or too few images\n- Cluttered layout with no breathing room\n- All text or all images\n- Poor contrast or readability\n\nConsider the brand type:\n- Visual brands (fashion, photography): More images expected\n- Service/B2B brands: More balanced text and visuals\n- Content-heavy brands: Text-focused is acceptable if well-formatted\n\nPass if: Content flows naturally with appropriate visual balance\nWarning if: Some sections have poor flow\nFail if: Significant walls of text or poor layout balance",
+    "active": true
   },
   {
-    "name": "Visual feedback for current page",
-    "description": "Check if navigation shows which page is currently active",
-    "test_key": "nav_active_page_indicator",
-    "test_details": "Look for visual indicators (highlighting, underlining, different color, bold text) that show users which page they're currently on within the navigation menu.\n\nPass if there's clear active page indication.\nFail if no visual feedback for current location.",
-    "data_sources": ["page_html"],
-    "test_group": "Navigation"
+    "name": "Hero and Above-Fold Brand Clarity",
+    "description": "Check if users can quickly understand what the brand does from hero and above-fold content",
+    "test_key": "hero_brand_clarity",
+    "test_group": "Default",
+    "data_sources": ["page_html", "page_content", "headings", "screenshots"],
+    "test_details": "Evaluate if the hero section and above-the-fold content clearly communicate what the brand/company does.\n\nClear messaging should include:\n- Prominent headline stating what the company does or offers\n- Value proposition visible immediately\n- Clear categorization (e.g., \"E-commerce Platform\", \"Web Design Agency\")\n- Supporting subheadline with more context\n- Relevant hero image or illustration\n- Clear call-to-action\n\nPass if: Within 5 seconds of viewing, it's obvious:\n  1. What the company does/sells\n  2. Who it's for\n  3. What makes it valuable\n\nWarning if: Takes some inference or reading to understand\n\nFail if:\n- Generic messaging that could apply to any business\n- No clear statement of purpose\n- Confusing or vague headlines\n- Hero doesn't reflect the business at all\n\nThe hero section is the most critical real estate - users should instantly understand if this site is relevant to them.",
+    "active": true
   },
   {
-    "name": "Visible search bar on every page",
-    "description": "Check for search functionality accessibility, especially on mobile",
-    "test_key": "structure_search_bar_visible",
-    "test_details": "Verify if there's a clearly visible search bar or search icon on every page, with particular attention to mobile layout. Search should be easy to find without digging through menus.\n\nPass if search is clearly visible and accessible.\nFail if search is hidden or absent.",
-    "data_sources": ["page_html"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Breadcrumb links on sub pages",
-    "description": "Check for breadcrumb navigation on deeper pages",
-    "test_key": "structure_breadcrumbs_present",
-    "test_details": "Look for breadcrumb navigation elements that show the page hierarchy and allow users to navigate up levels (e.g., Home > Products > Category > Item).\n\nPass if breadcrumbs are present on sub-pages.\nFail if no breadcrumb navigation exists.",
-    "data_sources": ["page_html"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Intuitive category pages or hubs",
-    "description": "Verify clear category organization for products/services",
-    "test_key": "structure_category_hubs",
-    "test_details": "Check if the site has well-defined category pages or hubs that logically organize products/services. Categories should be intuitive and help users find what they need.\n\nPass if categories are clear and well-organized.\nFail if categories are confusing, poorly organized, or missing.",
-    "data_sources": ["page_html", "internal_links"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Filter and sort functionality",
-    "description": "Check for filtering and sorting options on listing pages",
-    "test_key": "structure_filter_sort",
-    "test_details": "Look for filter and sort controls on product/service listing pages. Users should be able to narrow down options by relevant criteria (price, rating, category, etc.).\n\nPass if filtering/sorting exists where applicable.\nFail if no filtering options on pages that would benefit from them.\nNot Applicable if the site doesn't have listings that need filtering.",
-    "data_sources": ["page_html"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Horizontal links between related categories",
-    "description": "Check if related categories are connected with cross-links",
-    "test_key": "structure_horizontal_links",
-    "test_details": "Analyze if related content or category pages have horizontal links connecting them (e.g., 'Related Services', 'You might also like', 'Similar Products'). This helps users discover related content.\n\nPass if horizontal navigation between related content exists.\nFail if pages are siloed without cross-links.",
-    "data_sources": ["page_html", "internal_links"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Clear URL hierarchy structure",
-    "description": "Verify URL structure reflects logical site hierarchy",
-    "test_key": "structure_url_hierarchy",
-    "test_details": "Check if URLs follow a clear, hierarchical structure (e.g., /products/category/subcategory/item). URLs should be readable and reflect the site's information architecture.\n\nPass if URLs are well-structured and hierarchical.\nFail if URLs are flat, use random IDs, or don't reflect content hierarchy.",
-    "data_sources": ["internal_links"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Content flows well with layout",
-    "description": "Check if content is optimized for readability without walls of text",
-    "test_key": "structure_content_flow",
-    "test_details": "Analyze if content is broken up appropriately with headings, images, white space, bullet points, and other formatting. Avoid long walls of text that are hard to scan.\n\nPass if content is well-formatted and scannable.\nFail if content appears as dense walls of text.",
-    "data_sources": ["page_content", "headings"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Customer-friendly language used",
-    "description": "Check if content is written at an accessible reading level",
-    "test_key": "structure_reading_level",
-    "test_details": "Analyze the page content to determine if it's written in clear, customer-friendly language (approximately 5th grade reading level). Avoid jargon, complex sentences, and overly technical language unless appropriate for the audience.\n\nPass if content is clear and accessible.\nFail if content is overly complex or hard to understand.",
-    "data_sources": ["page_content"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Logo links to homepage",
-    "description": "Verify clicking the site logo returns users to the homepage",
-    "test_key": "structure_logo_homepage_link",
-    "test_details": "Check if the site logo in the header is linked to the homepage. This is a web convention that users expect.\n\nPass if logo links to homepage.\nFail if logo is not clickable or doesn't go to homepage.",
-    "data_sources": ["page_html"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Brand clarity from hero content",
-    "description": "Check if users can quickly understand what the brand sells",
-    "test_key": "structure_brand_clarity",
-    "test_details": "Analyze the hero section and above-the-fold content to determine if users can immediately understand what the brand offers. The value proposition should be crystal clear.\n\nPass if the offering is immediately clear.\nFail if it's confusing or unclear what the brand sells.",
-    "data_sources": ["page_content", "headings"],
-    "test_group": "Structure"
-  },
-  {
-    "name": "Above-fold contains key elements",
-    "description": "Check for essential conversion elements above the fold",
-    "test_key": "cro_above_fold_elements",
-    "test_details": "Verify that the above-the-fold view includes: compelling headline, relevant image/video, clear CTA, primary USPs, social proof elements, and any guarantees. These elements are critical for conversions.\n\nPass if most key elements are present.\nFail if multiple critical elements are missing.",
-    "data_sources": ["page_html", "headings"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Clear conversion path with minimal friction",
-    "description": "Verify users can convert in 4 clicks or less",
-    "test_key": "cro_conversion_path",
-    "test_details": "Analyze if the path from landing to conversion is clear and requires minimal clicks (ideally 4 or fewer). The conversion funnel should be straightforward without unnecessary steps.\n\nPass if conversion path is clear and short.\nFail if conversion requires many steps or is confusing.",
-    "data_sources": ["page_html", "internal_links"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Forms are simple and minimal",
-    "description": "Check if forms request only essential information",
-    "test_key": "cro_form_simplicity",
-    "test_details": "Evaluate any forms on the page for simplicity. Forms should ask only for necessary information and be easy to complete. Long forms decrease conversion rates.\n\nPass if forms are concise and user-friendly.\nFail if forms are lengthy or request unnecessary information.",
-    "data_sources": ["page_html"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Multiple payment options available",
-    "description": "Check for variety of payment methods at checkout",
-    "test_key": "cro_payment_options",
-    "test_details": "Look for evidence of multiple payment options (credit cards, PayPal, Apple Pay, etc.). More payment options typically increase conversion rates.\n\nPass if multiple payment methods are mentioned.\nFail if only one payment method appears available.\nNot Applicable for non-ecommerce sites.",
-    "data_sources": ["page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "One page checkout",
-    "description": "Verify if checkout uses a single-page design",
-    "test_key": "cro_one_page_checkout",
-    "test_details": "Check if the checkout process uses a one-page design rather than multi-step process. Single-page checkout generally reduces cart abandonment.\n\nPass if checkout appears to be one page.\nFail if checkout is multi-step.\nNot Applicable for non-ecommerce sites.",
-    "data_sources": ["page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Free shipping offered",
-    "description": "Check if the site offers free shipping",
-    "test_key": "cro_free_shipping",
-    "test_details": "Look for mentions of free shipping, which is a major conversion driver for ecommerce. Check headers, banners, and product pages.\n\nPass if free shipping is mentioned.\nFail if no free shipping or not mentioned.\nNot Applicable for non-ecommerce sites.",
-    "data_sources": ["page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Discounts or promotions available",
-    "description": "Check if site offers any promotions or discount codes",
-    "test_key": "cro_discounts_promotions",
-    "test_details": "Look for promotional banners, discount codes, or special offers displayed on the site. Promotions can significantly boost conversions.\n\nPass if promotions or discounts are visible.\nFail if no promotional elements found.",
-    "data_sources": ["page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Exit-intent popups present",
-    "description": "Check for exit-intent popup functionality",
-    "test_key": "cro_exit_intent_popups",
-    "test_details": "Look for evidence of exit-intent popup scripts or references in the page code. Exit-intent popups can recover abandoning visitors.\n\nPass if exit-intent functionality detected.\nFail if no exit-intent popups found.",
-    "data_sources": ["page_html", "asset_urls"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Upsell opportunities present",
-    "description": "Check if the site offers product upsells or cross-sells",
-    "test_key": "cro_upsell_opportunities",
-    "test_details": "Look for upsell or cross-sell opportunities ('Customers also bought', 'Upgrade to premium', 'Add to your order', etc.).\n\nPass if upsell elements are present.\nFail if no upselling detected.\nNot Applicable for non-ecommerce sites.",
-    "data_sources": ["page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Customer reviews and testimonials featured",
-    "description": "Check for presence of customer reviews or testimonials",
-    "test_key": "cro_reviews_testimonials",
-    "test_details": "Look for customer reviews, testimonials, ratings, or social proof elements on the page. These build trust and increase conversions.\n\nPass if reviews/testimonials are present.\nFail if no social proof elements found.",
-    "data_sources": ["page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "FAQs implemented",
-    "description": "Check for FAQ section or accordion",
-    "test_key": "cro_faqs_present",
-    "test_details": "Look for Frequently Asked Questions sections, ideally in a collapsible/accordion format. FAQs address objections and reduce support burden.\n\nPass if FAQ section exists.\nFail if no FAQ content found.",
-    "data_sources": ["page_content", "headings"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "CTAs stand out and appear frequently",
-    "description": "Check if call-to-action buttons are prominent and consistent",
-    "test_key": "cro_cta_prominence",
-    "test_details": "Analyze if CTAs are visually distinct, appear multiple times on key pages, and use consistent styling. CTAs should stand out and guide users toward conversion.\n\nPass if CTAs are prominent and consistent.\nFail if CTAs are inconsistent, hard to find, or poorly designed.",
-    "data_sources": ["page_html", "colors"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Key pages include USPs",
-    "description": "Verify Unique Selling Propositions are present on important pages",
-    "test_key": "cro_usps_present",
-    "test_details": "Check if key pages (homepage, product/service pages, pricing) clearly communicate the brand's unique selling propositions and value differentiators.\n\nPass if USPs are clearly stated on key pages.\nFail if USPs are missing or unclear.",
-    "data_sources": ["page_content", "headings"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Key policy pages exist",
-    "description": "Check for important policy and legal pages",
-    "test_key": "cro_policy_pages",
-    "test_details": "Verify that essential policy pages exist and are linked (Privacy Policy, Terms of Service, Return Policy, Shipping Policy where applicable). These build trust and legal compliance.\n\nPass if key policy pages are linked.\nFail if important policy pages are missing.",
-    "data_sources": ["internal_links", "page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Guarantees featured on site",
-    "description": "Check for money-back guarantees or satisfaction promises",
-    "test_key": "cro_guarantees",
-    "test_details": "Look for guarantees (money-back, satisfaction, warranty, etc.) that reduce purchase risk and increase confidence.\n\nPass if guarantees are mentioned.\nFail if no guarantees found.",
-    "data_sources": ["page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Site makes good first impression",
-    "description": "Evaluate overall visual appeal and professionalism",
-    "test_key": "design_first_impression",
-    "test_details": "Analyze the overall visual design to determine if the site makes a positive first impression. Consider modern design trends, visual appeal, and professional appearance.\n\nPass if the site appears professional and appealing.\nFail if the design looks outdated, unprofessional, or poorly executed.",
-    "data_sources": ["page_html", "colors"],
-    "test_group": "Design"
-  },
-  {
-    "name": "Design reflects brand identity",
-    "description": "Check if visual design communicates unique brand personality",
-    "test_key": "design_brand_identity",
-    "test_details": "Evaluate whether the visual design (colors, fonts, imagery, layout) reflects a unique brand identity rather than generic templates.\n\nPass if design feels branded and unique.\nFail if design appears generic or template-based.",
-    "data_sources": ["page_html", "colors", "asset_urls"],
-    "test_group": "Design"
-  },
-  {
-    "name": "Visually consistent design",
-    "description": "Check for consistency in spacing, colors, buttons, and headings",
-    "test_key": "design_visual_consistency",
-    "test_details": "Analyze the page for visual consistency across elements. Spacing, alignment, colors, button styles, and heading styles should be consistent throughout.\n\nPass if design is highly consistent.\nFail if there are noticeable inconsistencies in design elements.",
-    "data_sources": ["page_html", "headings", "colors"],
-    "test_group": "Design"
-  },
-  {
-    "name": "Avoids outdated design elements",
-    "description": "Check if site uses modern design patterns and avoids dated trends",
-    "test_key": "design_modern_elements",
-    "test_details": "Evaluate if the site avoids outdated design elements (excessive gradients, drop shadows, beveled edges, outdated fonts, flash-era designs, etc.).\n\nPass if design feels modern and current.\nFail if design uses outdated visual trends.",
-    "data_sources": ["page_html", "colors"],
-    "test_group": "Design"
-  },
-  {
-    "name": "Uses high quality relevant images",
-    "description": "Check for custom, relevant imagery rather than generic stock photos",
-    "test_key": "design_image_quality",
-    "test_details": "Analyze if the site uses high-quality, relevant images. Look for signs of generic stock photography versus custom, brand-specific imagery.\n\nPass if images appear custom and high-quality.\nFail if images are obviously generic stock photos or low quality.",
-    "data_sources": ["page_html", "asset_urls"],
-    "test_group": "Design"
-  },
-  {
-    "name": "Fonts are readable across devices",
-    "description": "Check if typography is legible on all screen sizes",
-    "test_key": "design_font_readability",
-    "test_details": "Evaluate font choices and sizes for readability. Fonts should be large enough, have sufficient contrast, and be legible across device types.\n\nPass if fonts are clear and readable.\nFail if text is too small, low contrast, or hard to read.",
-    "data_sources": ["page_html", "asset_urls"],
-    "test_group": "Design"
-  },
-  {
-    "name": "Mobile responsive design",
-    "description": "Verify site is properly responsive and mobile-friendly",
-    "test_key": "design_mobile_responsive",
-    "test_details": "Check for mobile-responsive design indicators (viewport meta tag, responsive breakpoints, mobile-friendly layout). The site should work well on all screen sizes.\n\nPass if site appears mobile-responsive.\nFail if site lacks mobile optimization.",
-    "data_sources": ["page_html"],
-    "test_group": "Design"
-  },
-  {
-    "name": "Buttons are mobile-friendly",
-    "description": "Check if buttons are large enough for touch interaction",
-    "test_key": "design_mobile_buttons",
-    "test_details": "Verify that buttons and interactive elements are sized appropriately for mobile touch targets (minimum 44x44px recommended).\n\nPass if buttons appear appropriately sized.\nFail if buttons seem too small for touch interaction.",
-    "data_sources": ["page_html"],
-    "test_group": "Design"
-  },
-  {
-    "name": "Primary CTA above the fold",
-    "description": "Check if each key page has a CTA in the initial viewport",
-    "test_key": "cro_above_fold_cta",
-    "test_details": "Verify that important pages (homepage, product pages, landing pages) include at least one primary call-to-action button above the fold.\n\nPass if CTA is present above the fold.\nFail if users must scroll to find the primary CTA.",
-    "data_sources": ["page_html"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Guest checkout enabled",
-    "description": "Check if users can checkout without creating an account",
-    "test_key": "cro_guest_checkout",
-    "test_details": "Look for evidence of guest checkout functionality. Forced account creation is a major conversion barrier.\n\nPass if guest checkout appears available.\nFail if account creation seems required.\nNot Applicable for non-ecommerce sites.",
-    "data_sources": ["page_content"],
-    "test_group": "CRO"
-  },
-  {
-    "name": "Dedicated testimonials page",
-    "description": "Check for a dedicated page showcasing customer testimonials",
-    "test_key": "presentation_testimonials_page",
-    "test_details": "Look for a dedicated testimonials, reviews, or customer success page that consolidates social proof.\n\nPass if a testimonials page exists.\nFail if no dedicated testimonials page.",
-    "data_sources": ["internal_links", "page_content"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Reviews visible on key pages",
-    "description": "Check if reviews and star ratings appear on important pages",
-    "test_key": "presentation_reviews_on_key_pages",
-    "test_details": "Verify that product reviews and star ratings are displayed on key pages beyond just product detail pages (category pages, homepage, etc.).\n\nPass if reviews appear on multiple page types.\nFail if reviews are missing from key pages.",
-    "data_sources": ["page_content"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Reviews are legitimate and detailed",
-    "description": "Check if reviews include names, dates, and specific details",
-    "test_key": "presentation_review_authenticity",
-    "test_details": "Evaluate if on-site reviews appear legitimate with reviewer names, dates, specific product details, and genuine feedback.\n\nPass if reviews appear authentic and detailed.\nFail if reviews seem generic or lack credibility indicators.",
-    "data_sources": ["page_content"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Customer photos or videos in reviews",
-    "description": "Check for user-generated content in review sections",
-    "test_key": "presentation_ugc_reviews",
-    "test_details": "Look for customer-submitted photos or videos within product reviews. User-generated content significantly increases trust.\n\nPass if customer photos/videos are present.\nFail if no user-generated content in reviews.\nNot Applicable if no review system exists.",
-    "data_sources": ["page_content"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Review filtering and sorting",
-    "description": "Check for options to filter or sort customer reviews",
-    "test_key": "presentation_review_filtering",
-    "test_details": "Look for functionality to filter or sort reviews (by rating, date, verified purchase, etc.). This helps users find relevant reviews.\n\nPass if filtering/sorting options exist.\nFail if no review filtering functionality.\nNot Applicable if no review system.",
-    "data_sources": ["page_html"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Third-party trust badges visible",
-    "description": "Check for industry certifications and trust badges",
-    "test_key": "presentation_trust_badges",
-    "test_details": "Look for third-party trust signals like BBB accreditation, industry awards, security badges, or certification logos that build credibility.\n\nPass if trust badges are present.\nFail if no third-party trust indicators.",
-    "data_sources": ["page_html", "asset_urls"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Review stars in search results",
-    "description": "Check if structured data enables review snippets in SERPs",
-    "test_key": "presentation_serp_reviews",
-    "test_details": "Look for structured data (schema.org) markup that would enable review stars to appear in search engine results pages.\n\nPass if review structured data is present.\nFail if no review schema markup found.",
-    "data_sources": ["page_html"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Price clearly visible",
-    "description": "Check if pricing is prominently displayed on product/service pages",
-    "test_key": "presentation_price_visibility",
-    "test_details": "Verify that prices are clearly visible on product or service pages. Hidden pricing creates friction and reduces conversions.\n\nPass if prices are clearly displayed.\nFail if prices are hidden or hard to find.",
-    "data_sources": ["page_content"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Clear value messaging for price",
-    "description": "Check if pricing is justified with value communication",
-    "test_key": "presentation_price_value",
-    "test_details": "Evaluate if the site communicates value to justify the price point. Look for benefit statements, comparisons, or value explanations near pricing.\n\nPass if value messaging supports the price.\nFail if price appears without value context.",
-    "data_sources": ["page_content"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Total cost visible before checkout",
-    "description": "Check if users can see full costs including fees before checkout",
-    "test_key": "presentation_total_cost_visibility",
-    "test_details": "Verify that total costs (including taxes, shipping, fees) are visible before users reach the final checkout step. Hidden costs are a major cart abandonment cause.\n\nPass if cost breakdown is shown early.\nFail if costs only revealed at final step.\nNot Applicable for non-ecommerce sites.",
-    "data_sources": ["page_content"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Bundle discounts clearly labeled",
-    "description": "Check if bundle deals show clear price savings",
-    "test_key": "presentation_bundle_savings",
-    "test_details": "Look for bundle offers or multi-item promotions that clearly show the savings amount or percentage.\n\nPass if bundle savings are clear.\nFail if bundles don't show savings.\nNot Applicable if no bundle offers.",
-    "data_sources": ["page_content"],
-    "test_group": "Presentation"
-  },
-  {
-    "name": "Order total displayed before submission",
-    "description": "Check if checkout shows final total before completing order",
-    "test_key": "price_checkout_total",
-    "test_details": "Verify that the checkout displays the complete order total with all charges before the final 'Place Order' button.\n\nPass if total is clearly shown before submission.\nFail if total not visible until after order.\nNot Applicable for non-ecommerce sites.",
-    "data_sources": ["page_content"],
-    "test_group": "Price"
-  },
-  {
-    "name": "Discount code and amount displayed",
-    "description": "Check if applied discounts are shown in order summary",
-    "test_key": "price_discount_display",
-    "test_details": "If discount codes are applied, verify that both the code and discount amount are displayed in the order summary.\n\nPass if discounts are clearly shown.\nFail if applied discounts not visible.\nNot Applicable if no discount system or non-ecommerce.",
-    "data_sources": ["page_content"],
-    "test_group": "Price"
-  },
-  {
-    "name": "Page Speed Insights score above 60",
-    "description": "Check if pages score well on performance metrics",
-    "test_key": "speed_psi_score",
-    "test_details": "Analyze performance data to estimate if the page would score above 60 on Google's PageSpeed Insights for both desktop and mobile. Look at load times, resource sizes, and performance indicators.\n\nPass if performance appears optimized (likely >60 PSI).\nFail if performance indicators suggest poor scores.",
-    "data_sources": ["performance_data"],
-    "test_group": "Speed"
-  },
-  {
-    "name": "Core Web Vitals in good range",
-    "description": "Check if URLs meet Core Web Vitals thresholds in Search Console",
-    "test_key": "speed_core_web_vitals",
-    "test_details": "Analyze performance metrics to estimate if the page meets Google's Core Web Vitals thresholds (LCP, FID, CLS).\n\nPass if performance suggests good Core Web Vitals.\nFail if metrics indicate poor Core Web Vitals.",
-    "data_sources": ["performance_data"],
-    "test_group": "Speed"
-  },
-  {
-    "name": "Lazy loading implemented",
-    "description": "Check if images, videos, and scripts use lazy loading",
-    "test_key": "speed_lazy_loading",
-    "test_details": "Look for lazy loading attributes on images, iframes, and scripts (loading='lazy', intersection observer, etc.). Lazy loading improves initial page load performance.\n\nPass if lazy loading is implemented.\nFail if resources load eagerly without lazy loading.",
-    "data_sources": ["page_html"],
-    "test_group": "Speed"
-  },
-  {
-    "name": "Responsive images served",
-    "description": "Check if images are optimized for different screen sizes",
-    "test_key": "speed_responsive_images",
-    "test_details": "Look for responsive image techniques (srcset, picture elements, appropriate sizing). Sites should serve appropriately-sized images for different devices.\n\nPass if responsive image techniques are used.\nFail if all images are served at full size.",
-    "data_sources": ["page_html"],
-    "test_group": "Speed"
-  },
-  {
-    "name": "Third-party scripts deferred",
-    "description": "Check if external scripts are loaded asynchronously or deferred",
-    "test_key": "speed_script_deferring",
-    "test_details": "Analyze script tags for async or defer attributes. Third-party scripts should not block initial page rendering.\n\nPass if scripts use async/defer loading.\nFail if blocking scripts impact initial load.",
-    "data_sources": ["page_html", "asset_urls"],
-    "test_group": "Speed"
-  },
-  {
-    "name": "No unnecessary bloat scripts",
-    "description": "Check if site loads excessive or unnecessary third-party resources",
-    "test_key": "speed_script_bloat",
-    "test_details": "Analyze loaded scripts and assets for unnecessary bloat. Look for excessive tracking scripts, unused plugins, or redundant libraries that slow the site.\n\nPass if resource loading appears optimized.\nFail if many unnecessary scripts are detected.",
-    "data_sources": ["asset_urls", "performance_data"],
-    "test_group": "Speed"
+    "name": "Upsell Opportunities",
+    "description": "Check if the website implements upselling strategies to increase average order value",
+    "test_key": "upsell_opportunities",
+    "test_group": "CRO",
+    "data_sources": ["page_html", "page_content"],
+    "test_details": "Identify if the website includes upselling opportunities to maximize revenue per customer.\n\nUpsell tactics to look for:\n- \"Frequently bought together\" suggestions\n- Product bundles or kits\n- Volume discounts (\"Buy 2, save 10%\")\n- Tiered pricing options\n- Premium or upgraded versions\n- Add-on products or services\n- \"Complete the look\" suggestions\n- Extended warranties or protection plans\n- Gift wrapping or expedited shipping options\n- Related/complementary product recommendations\n- \"Customers also bought\" sections\n\nPass if: Multiple upsell mechanisms are present\nWarning if: Only basic recommendations present\nNot Applicable if: Site type doesn't support upselling (portfolio, service inquiry, etc.)\nFail if: E-commerce site with zero upsell strategy\n\nUpselling can increase average order value by 10-30% when done thoughtfully.",
+    "active": true
   }
 ]

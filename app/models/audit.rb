@@ -3,6 +3,7 @@ class Audit < ApplicationRecord
   has_many :discovered_pages, dependent: :destroy
   has_many :audit_questions, dependent: :destroy
   has_many :test_results, dependent: :destroy
+  has_many :wireframes, dependent: :destroy
 
   # Serialize test_ids as array
   attribute :test_ids, :integer, array: true, default: []

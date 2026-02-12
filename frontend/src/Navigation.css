@@ -18,6 +18,15 @@
   font-weight: 700;
 }
 
+.nav-brand {
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.nav-brand:hover {
+  opacity: 0.8;
+}
+
 .nav-links {
   display: flex;
   gap: 2rem;

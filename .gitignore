@@ -35,3 +35,5 @@
 # Ignore screenshots directory (contains captured page images)
 /public/screenshots/*
 !/public/screenshots/.keep
+/public/wireframes/*
+!/public/wireframes/.keep

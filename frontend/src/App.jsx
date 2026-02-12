@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import './App.css'
 import './insights.css'
 import './test-results.css'
 import './test-json-details.css'
 import './test-selection.css'
 import './lightbox.css'
+import WireframeConfigModal from './WireframeConfigModal'
 
 function App() {
+  const { id: auditIdParam } = useParams()
+  const navigate = useNavigate()
+  
   const [url, setUrl] = useState('')
   const [fullCrawl, setFullCrawl] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -22,58 +27,48 @@ function App() {
   const [aiPrompts, setAiPrompts] = useState({
     systemPrompt: `You are an expert website auditor analyzing conversion optimization, user experience, design quality, and technical performance. Provide actionable, specific feedback.`,
     temperature: 0.3,
-    model: 'claude-sonnet-4-5'
+    model: 'claude-opus-4-6'
   })
   const [testGroups, setTestGroups] = useState([])
   const [tests, setTests] = useState([])
   const [selectedTests, setSelectedTests] = useState([])
   const [showTestSelection, setShowTestSelection] = useState(false)
   const [lightboxImage, setLightboxImage] = useState(null)
+  const [wireframes, setWireframes] = useState([])
+  const [showWireframeModal, setShowWireframeModal] = useState(false)
+  const [loadingWireframes, setLoadingWireframes] = useState(false)
+  const [wireframesGenerating, setWireframesGenerating] = useState(false)
+  const [wireframesExpected, setWireframesExpected] = useState(0)
+  const [generationStartedAt, setGenerationStartedAt] = useState(null)
+
+  console.log(currentAudit)
 
   // Data source icon getter (matching TestLibrary exactly)
   const getDataSourceIcon = (source) => {
     const icons = {
       'page_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v8h8V4H4zm2 2h4v1H6V6zm0 2h4v1H6V8z"/></svg>',
-      'html_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3l-3 3 3 3V7h6v2l3-3-3-3v2H5V3z"/></svg>',
-      'screenshots': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2.5"/></svg>',
-      'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-weight="bold">H</text></svg>',
-      'meta_tags': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h4l2 5 2-5h4L12 13h-2L8 8l-2 5H4L3 3z"/></svg>',
-      'meta_title': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h4l2 5 2-5h4L12 13h-2L8 8l-2 5H4L3 3z"/></svg>',
-      'meta_description': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h4l2 5 2-5h4L12 13h-2L8 8l-2 5H4L3 3z"/></svg>',
-      'structured_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2V4zm0 4h12v2H2V8zm0 4h12v2H2v-2z"/></svg>',
-      'fonts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-style="italic">A</text></svg>',
-      'colors': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="5" r="3" fill="#CE6262"/><circle cx="11" cy="5" r="3" fill="#4A9EFF"/><circle cx="8" cy="10" r="3" fill="#62CE8B"/></svg>',
-      'images': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="6.5" r="1.5"/><path d="M2 11l3-3 2 2 4-4 3 3v2H2z"/></svg>',
-      'scripts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 5l4 3-4 3V5zm6 0v6h2V5h-2z"/></svg>',
-      'stylesheets': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v2H3V2zm0 4h10v2H3V6zm0 4h6v2H3v-2z"/></svg>',
-      'performance_metrics': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
-      'asset_distribution': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2V4zm0 4h12v2H2V8zm0 4h12v2H2v-2z"/></svg>',
-      'total_page_weight': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
-      'links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>',
-      'computed_styles': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2l6 4v6l-6 4-6-4V6l6-4zm0 2L4 6.5v3L8 12l4-2.5v-3L8 4z"/></svg>'
+      'page_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3L2 8l3 5v-2L3 8l2-3V3zm6 0v2l2 3-2 3v2l3-5-3-5z"/></svg>',
+      'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h2v4h4V3h2v10h-2V9H5v4H3V3z"/></svg>',
+      'asset_urls': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v2H4v8h3v2H2V3zm7 0h5v12h-5v-2h3V5h-3V3z"/><rect x="6" y="7" width="4" height="2"/></svg>',
+      'performance_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 106 6h-2a4 4 0 11-4-4V2zm1 3v3h3a4 4 0 00-3-3z"/></svg>',
+      'internal_links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>',
+      'external_links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11 3h2v2h-2V3zM9 5V3h2v2H9zm2 2V5h2v2h-2zm0 2V7h2v2h-2zm-2 2V9h2v2H9zM3 13h6v-2H5V5h6V3H3v10z"/></svg>',
+      'colors': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="5" r="3"/><circle cx="11" cy="5" r="2.5" opacity="0.7"/><circle cx="8" cy="10" r="2.5" opacity="0.8"/></svg>',
+      'screenshots': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="7.5" r="2.5"/></svg>'
     };
     return icons[source] || '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>';
   };
 
   const sourceLabels = {
     'page_content': 'Page Content',
-    'html_content': 'HTML Content',
-    'screenshots': 'Screenshots',
+    'page_html': 'Page HTML',
     'headings': 'Headings',
-    'meta_tags': 'Meta Tags',
-    'meta_title': 'Meta Title',
-    'meta_description': 'Meta Description',
-    'structured_data': 'Structured Data',
-    'fonts': 'Fonts',
+    'asset_urls': 'Asset URLs',
+    'performance_data': 'Performance Data',
+    'internal_links': 'Internal Links',
+    'external_links': 'External Links',
     'colors': 'Colors',
-    'images': 'Images',
-    'scripts': 'Scripts',
-    'stylesheets': 'Stylesheets',
-    'performance_metrics': 'Performance Metrics',
-    'asset_distribution': 'Asset Distribution',
-    'total_page_weight': 'Total Page Weight',
-    'links': 'Links',
-    'computed_styles': 'Computed Styles'
+    'screenshots': 'Screenshots'
   };
 
   const [expandedTests, setExpandedTests] = useState({})
@@ -86,6 +81,17 @@ function App() {
     loadAuditHistory()
     loadTests()
   }, [])
+
+  // Load audit from URL parameter
+  useEffect(() => {
+    if (auditIdParam) {
+      const paramAuditId = parseInt(auditIdParam)
+      // Only load if different from current audit
+      if (!currentAudit || currentAudit.id !== paramAuditId) {
+        loadAudit(paramAuditId)
+      }
+    }
+  }, [auditIdParam])
 
   const loadAuditHistory = async () => {
     try {
@@ -193,6 +199,9 @@ function App() {
           setLoading(false)
           setPolling(false)
           loadAuditHistory()
+          
+          // Navigate to the completed audit
+          navigate(`/audits/${auditId}`)
           return
         }
 
@@ -223,6 +232,11 @@ function App() {
 
   const loadAudit = async (auditId) => {
     setLoadingAudit(true)
+      
+      // Navigate to this audit's URL if not already there
+      if (window.location.pathname !== `/audits/${auditId}`) {
+        navigate(`/audits/${auditId}`, { replace: true })
+      }
     try {
       const response = await fetch(`${API_BASE}/audits/${auditId}`)
       const data = await response.json()
@@ -252,6 +266,8 @@ function App() {
         if (currentAudit?.id === auditId) {
           setCurrentAudit(null)
           setUrl('')
+          // Navigate back to home
+          navigate('/')
         }
         
         // Remove from state immediately
@@ -270,6 +286,7 @@ function App() {
     setError(null)
     setExpandedCategories({})
     setSelectedPageId(null)
+    navigate('/')
   }
 
   const toggleCategory = (category) => {
@@ -299,6 +316,64 @@ function App() {
         .catch(() => alert('Failed to copy to clipboard'))
     }
   }
+
+  const loadWireframes = async (auditId) => {
+    setLoadingWireframes(true)
+    try {
+      const response = await fetch(`${API_BASE}/audits/${auditId}/wireframes`)
+      const data = await response.json()
+      console.log('Wireframes data:', data) // Debug log
+      setWireframes(data.wireframes || [])
+      setWireframesGenerating(data.generating || false)
+      setWireframesExpected(data.expected_count || 0)
+      setGenerationStartedAt(data.generation_started_at)
+      return data
+    } catch (err) {
+      console.error('Failed to load wireframes', err)
+      return null
+    } finally {
+      setLoadingWireframes(false)
+    }
+  }
+
+  const handleWireframeGenerate = (count) => {
+    // Start polling every 5 seconds until server says generation is complete
+    if (currentAudit?.id) {
+      const pollInterval = setInterval(async () => {
+        const data = await loadWireframes(currentAudit.id)
+        
+        // Stop polling when generation is complete or failed
+        if (data && !data.generating) {
+          clearInterval(pollInterval)
+        }
+      }, 5000) // Poll every 5 seconds
+      
+      // Initial load after a short delay
+      setTimeout(() => loadWireframes(currentAudit.id), 2000)
+    }
+  }
+
+  const deleteWireframe = async (wireframeId) => {
+    if (!confirm('Delete this wireframe?')) return
+    
+    try {
+      await fetch(`${API_BASE}/wireframes/${wireframeId}`, { method: 'DELETE' })
+      setWireframes(prev => prev.filter(w => w.id !== wireframeId))
+    } catch (err) {
+      console.error('Failed to delete wireframe', err)
+      alert('Failed to delete wireframe')
+    }
+  }
+
+  const openWireframe = (wireframeUrl) => {
+    window.open(`${API_BASE}${wireframeUrl}`, '_blank')
+  }
+
+  useEffect(() => {
+    if (currentAudit?.id) {
+      loadWireframes(currentAudit.id)
+    }
+  }, [currentAudit?.id])
 
   const getPassRateColor = (passRate) => {
     return passRate >= 50 ? '#19C798' : '#CE6262'
@@ -427,10 +502,10 @@ function App() {
                         className="model-select"
                       >
                         <optgroup label="Claude (Anthropic)">
-                          <option value="claude-sonnet-4-5">Claude Sonnet 4.5 (Default)</option>
-                          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                          <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
-                          <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                          <option value="claude-opus-4-6">Claude Opus 4.6 (Default)</option>
+                          <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
+                          <option value="claude-sonnet-3-5">Claude Sonnet 3.5</option>
+                          <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
                         </optgroup>
                         <optgroup label="GPT (OpenAI)">
                           <option value="gpt-4o">GPT-4o</option>
@@ -586,6 +661,14 @@ function App() {
               <div className="test-results">
                 <h2>Test Results</h2>
                 
+                {/* Summary Section */}
+                {currentAudit.ai_summary && (
+                  <div className="audit-summary-section">
+                    <h3>Summary</h3>
+                    <p className="audit-summary-text">{currentAudit.ai_summary}</p>
+                  </div>
+                )}
+                
                 {/* Test Results List */}
                 {!currentAudit.test_results || currentAudit.test_results.length === 0 ? (
                   <div className="section-loading">
@@ -628,6 +711,36 @@ function App() {
                                   ))}
                                 </div>
                               </div>
+                            )}
+                            
+                            {/* AI Debug Info */}
+                            {(test.ai_prompt || test.data_context || test.ai_response) && (
+                              <details className="ai-debug-section">
+                                <summary>
+                                  <span className="summary-text">View Prompt Details</span>
+                                  <span className="expand-icon">+</span>
+                                </summary>
+                                <div className="ai-debug-content">
+                                  {test.ai_prompt && (
+                                    <div className="debug-block">
+                                      <h4>Full AI Prompt</h4>
+                                      <pre className="debug-pre">{test.ai_prompt}</pre>
+                                    </div>
+                                  )}
+                                  {test.data_context && Object.keys(test.data_context).length > 0 && (
+                                    <div className="debug-block">
+                                      <h4>Data Context</h4>
+                                      <pre className="debug-pre">{JSON.stringify(test.data_context, null, 2)}</pre>
+                                    </div>
+                                  )}
+                                  {test.ai_response && (
+                                    <div className="debug-block">
+                                      <h4>AI Response</h4>
+                                      <pre className="debug-pre">{test.ai_response}</pre>
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
                             )}
                           </div>
                         )}
@@ -678,6 +791,95 @@ function App() {
                     </div>
                   </details>
                 )}
+
+                {/* Wireframes Section */}
+                {currentAudit.pages && currentAudit.pages.length > 0 && currentAudit.pages[0].page_data && (
+                  <div className="wireframes-section">
+                    <div className="wireframes-header">
+                      <h3>Wireframes</h3>
+                      <button 
+                        className="generate-wireframes-btn"
+                        onClick={() => setShowWireframeModal(true)}
+                        disabled={loadingWireframes}
+                      >
+                        Generate Wireframe Variations
+                      </button>
+                    </div>
+                    
+                    {loadingWireframes && wireframes.length === 0 && !wireframesGenerating && (
+                      <div className="wireframes-loading">Loading wireframes...</div>
+                    )}
+                    
+                    {!loadingWireframes && wireframes.length === 0 && !wireframesGenerating && (
+                      <div className="wireframes-empty">
+                        No wireframes generated yet. Click the button above to create variations.
+                      </div>
+                    )}
+                    
+                    {(wireframes.length > 0 || wireframesGenerating) && (
+                      <div className="wireframes-grid">
+                        {/* Show generating placeholders */}
+                        {wireframesGenerating && (() => {
+                          // Count only wireframes from current generation batch
+                          const currentBatchCount = generationStartedAt 
+                            ? wireframes.filter(w => new Date(w.created_at) >= new Date(generationStartedAt)).length
+                            : 0
+                          const placeholdersNeeded = Math.max(0, wireframesExpected - currentBatchCount)
+                          
+                          return Array.from({ length: placeholdersNeeded }).map((_, idx) => (
+                            <div key={`generating-${idx}`} className="wireframe-card generating">
+                              <div className="wireframe-preview">
+                                <div className="spinner"></div>
+                              </div>
+                              <div className="wireframe-info">
+                                <div className="wireframe-title">Generating...</div>
+                                <div className="wireframe-date">In progress</div>
+                              </div>
+                            </div>
+                          ))
+                        })()}
+                        
+                        {/* Show generated wireframes */}
+                        {wireframes.map(wireframe => (
+                          <div key={wireframe.id} className="wireframe-card">
+                            <div className="wireframe-preview" onClick={() => openWireframe(wireframe.url)}>
+                              <div className="wireframe-preview-placeholder">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                                  <line x1="9" y1="9" x2="15" y2="9"/>
+                                  <line x1="9" y1="12" x2="15" y2="12"/>
+                                  <line x1="9" y1="15" x2="12" y2="15"/>
+                                </svg>
+                              </div>
+                            </div>
+                            <div className="wireframe-info">
+                              <div className="wireframe-title" title={wireframe.title}>{wireframe.title}</div>
+                              <div className="wireframe-date">
+                                {new Date(wireframe.created_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div className="wireframe-actions">
+                              <button 
+                                className="wireframe-view-btn"
+                                onClick={() => openWireframe(wireframe.url)}
+                                title="Open in new tab"
+                              >
+                                View
+                              </button>
+                              <button 
+                                className="wireframe-delete-btn"
+                                onClick={() => deleteWireframe(wireframe.id)}
+                                title="Delete wireframe"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -694,6 +896,18 @@ function App() {
             <div className="lightbox-label">{lightboxImage.label}</div>
           </div>
         </div>
+      )}
+
+      {/* Wireframe Config Modal */}
+      {showWireframeModal && currentAudit && (
+        <WireframeConfigModal
+          isOpen={showWireframeModal}
+          onClose={() => setShowWireframeModal(false)}
+          auditId={currentAudit.id}
+          pageData={currentAudit.pages[0].page_data}
+          audit={currentAudit}
+          onGenerate={handleWireframeGenerate}
+        />
       )}
     </div>
   )

@@ -183,7 +183,10 @@ class AuditsController < ApplicationController
         test_name: result.human_test_name,
         status: result.status,
         summary: result.summary,
-        data_sources: test&.data_sources || []
+        data_sources: test&.data_sources || [],
+        ai_prompt: result.ai_prompt,
+        data_context: result.data_context,
+        ai_response: result.ai_response
       }
     end
   end

@@ -24,35 +24,28 @@ const TestBuilder = () => {
   const getDataSourceIcon = (source) => {
     const icons = {
       'page_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v8h8V4H4zm2 2h4v1H6V6zm0 2h4v1H6V8z"/></svg>',
-      'page_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3l-3 3 3 3V7h6v2l3-3-3-3v2H5V3z"/></svg>',
-      'html_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3l-3 3 3 3V7h6v2l3-3-3-3v2H5V3z"/></svg>',
-      'screenshots': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2.5"/></svg>',
-      'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-weight="bold">H</text></svg>',
-      'asset_urls': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2V4zm0 4h12v2H2V8zm0 4h12v2H2v-2z"/></svg>',
-      'fonts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-style="italic">A</text></svg>',
-      'colors': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="5" r="3" fill="#CE6262"/><circle cx="11" cy="5" r="3" fill="#4A9EFF"/><circle cx="8" cy="10" r="3" fill="#62CE8B"/></svg>',
-      'images': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="6.5" r="1.5"/><path d="M2 11l3-3 2 2 4-4 3 3v2H2z"/></svg>',
-      'scripts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 5l4 3-4 3V5zm6 0v6h2V5h-2z"/></svg>',
-      'stylesheets': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v2H3V2zm0 4h10v2H3V6zm0 4h6v2H3v-2z"/></svg>',
-      'performance_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
-      'performance_metrics': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
+      'page_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3L2 8l3 5v-2L3 8l2-3V3zm6 0v2l2 3-2 3v2l3-5-3-5z"/></svg>',
+      'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h2v4h4V3h2v10h-2V9H5v4H3V3z"/></svg>',
+      'asset_urls': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v2H4v8h3v2H2V3zm7 0h5v12h-5v-2h3V5h-3V3z"/><rect x="6" y="7" width="4" height="2"/></svg>',
+      'performance_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 106 6h-2a4 4 0 11-4-4V2zm1 3v3h3a4 4 0 00-3-3z"/></svg>',
       'internal_links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>',
       'external_links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11 3h2v2h-2V3zM9 5V3h2v2H9zm2 2V5h2v2h-2zm0 2V7h2v2h-2zm-2 2V9h2v2H9zM3 13h6v-2H5V5h6V3H3v10z"/></svg>',
-      'links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>'
+      'colors': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="5" r="3"/><circle cx="11" cy="5" r="2.5" opacity="0.7"/><circle cx="8" cy="10" r="2.5" opacity="0.8"/></svg>',
+      'screenshots': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="7.5" r="2.5"/></svg>'
     };
     return icons[source] || '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>';
   };
 
   const availableDataSources = [
     { value: 'page_content', label: 'Page Content', description: 'Main text content from the page', tooltip: 'Extracts all visible text from the rendered page. Gets the content users actually see (up to 5000 chars).' },
-    { value: 'page_html', label: 'Page HTML', description: 'Raw HTML source code', tooltip: 'Captures the full page source HTML with smart trimming - removes verbose inline scripts/styles but keeps structure (up to 50,000 chars).' },
-    { value: 'headings', label: 'Headings', description: 'H1, H2, H3, etc. headings structure', tooltip: 'Extracts all heading elements (H1-H6) with their text content in a structured format.' },
+    { value: 'page_html', label: 'Page HTML', description: 'Full HTML source code', tooltip: 'Complete page HTML with smart cleaning - removes inline scripts/styles content but keeps structure and all attributes (up to 50,000 chars).' },
+    { value: 'headings', label: 'Headings', description: 'H1, H2, H3, etc. heading structure', tooltip: 'Extracts all heading elements (H1-H6) with their text content in a structured format.' },
     { value: 'asset_urls', label: 'Asset URLs', description: 'All site assets (images, scripts, fonts, CSS)', tooltip: 'Consolidated list of all assets: images (with alt text), scripts (with async/defer), stylesheets, and fonts. Up to 20 images, 10 scripts, 10 stylesheets.' },
-    { value: 'performance_data', label: 'Performance Data', description: 'Page speed, weight, and asset distribution', tooltip: 'Comprehensive performance metrics: TTFB, First Paint, FCP, DOM Content Loaded, Load Complete, page weight (bytes/KB/MB), asset distribution (bytes & %), resource counts.' },
-    { value: 'internal_links', label: 'Internal Links', description: 'Links to other pages on the same domain', tooltip: 'Links pointing to the same domain or relative URLs. Includes href, text, rel, and target attributes (up to 30 links).' },
+    { value: 'performance_data', label: 'Performance Data', description: 'Page speed, weight, and metrics', tooltip: 'Comprehensive performance metrics: TTFB, First Paint, FCP, DOM Content Loaded, Load Complete, page weight (bytes/KB/MB), asset distribution (bytes & %), resource counts.' },
+    { value: 'internal_links', label: 'Internal Links', description: 'Links to pages on same domain', tooltip: 'Links pointing to the same domain or relative URLs. Includes href, text, rel, and target attributes (up to 30 links).' },
     { value: 'external_links', label: 'External Links', description: 'Links to external websites', tooltip: 'Links pointing to different domains. Includes href, text, rel, and target attributes (up to 30 links).' },
     { value: 'colors', label: 'Colors', description: 'Color palette used on the page', tooltip: 'Extracts colors from computed styles (color, backgroundColor, borderColor). Returns top 15 colors by usage count.' },
-    { value: 'screenshots', label: 'Screenshots (Vision API Required)', description: 'Visual screenshots - requires Claude vision', tooltip: 'Desktop (1920x1080) and mobile (375x812) full-page screenshots. Note: Analyzing screenshots requires Claude vision API which is not yet implemented.', disabled: true }
+    { value: 'screenshots', label: 'Screenshots', description: 'Visual screenshots (Vision API required)', tooltip: 'Desktop (1920x1080) and mobile (375x812) full-page screenshots. Note: Analyzing screenshots requires Claude vision API which is not yet implemented.', disabled: true }
   ];
 
   useEffect(() => {

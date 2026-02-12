@@ -7,9 +7,9 @@ const Navigation = () => {
 
   return (
     <nav className="main-navigation">
-      <div className="nav-brand">
+      <Link to="/" className="nav-brand">
         <h1>Site Auditor</h1>
-      </div>
+      </Link>
       <div className="nav-links">
         <Link 
           to="/" 

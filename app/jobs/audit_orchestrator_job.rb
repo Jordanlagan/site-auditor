@@ -43,10 +43,16 @@ class AuditOrchestratorJob < ApplicationJob
 
     # Phase 2: Run all tests (queued as async jobs)
     audit.update(status: "testing")
-    run_page_tests(page)
+    queued_count = run_page_tests(page)
 
     # Phase 3: Wait for all tests to complete
-    wait_for_tests_completion(page, audit)
+    wait_for_tests_completion(page, audit, queued_count)
+
+    # Phase 4: Generate AI summary of results
+    if queued_count > 0
+      audit.update(current_phase: "synthesizing")
+      generate_single_page_summary(audit, page)
+    end
   end
 
   def run_full_crawl_audit(audit)
@@ -88,12 +94,14 @@ class AuditOrchestratorJob < ApplicationJob
     Rails.logger.info "Running tests for: #{page.url}"
 
     runner = Tests::DynamicTestRunner.new(page)
-    runner.run_all_tests!
+    result = runner.run_all_tests!
 
     # Jobs are queued asynchronously, so we'll poll for completion
     # Wait briefly to let jobs start, then mark as complete
     # The actual completion will be checked by polling from frontend
     Rails.logger.info "✓ Test jobs queued for: #{page.url}"
+
+    result[:queued] # Return the actual number of tests queued
   rescue => e
     Rails.logger.error "✗ Tests failed for #{page.url}: #{e.message}"
     page.update(testing_status: "failed")
@@ -182,8 +190,7 @@ class AuditOrchestratorJob < ApplicationJob
     Rails.logger.info "✓ Results synthesized"
   end
 
-  def wait_for_tests_completion(page, audit)
-    expected_count = Test.active.count
+  def wait_for_tests_completion(page, audit, expected_count)
     max_attempts = 120 # Wait up to 2 minutes
     attempts = 0
     last_count = 0
@@ -216,5 +223,48 @@ class AuditOrchestratorJob < ApplicationJob
       # Check more frequently when tests are running
       sleep(current_count > 0 ? 0.5 : 1)
     end
+  end
+
+  def generate_single_page_summary(audit, page)
+    Rails.logger.info "Generating AI summary for audit..."
+
+    test_results = page.test_results.includes(:test)
+    passed_count = test_results.where(status: "passed").count
+    failed_count = test_results.where(status: "failed").count
+    warning_count = test_results.where(status: "warning").count
+
+    # Build context for AI
+    key_findings = []
+
+    test_results.where(status: [ "failed", "warning" ]).each do |result|
+      key_findings << "- #{result.test.name}: #{result.ai_analysis&.truncate(150)}"
+    end
+
+    prompt = <<~PROMPT
+      Generate a concise 2-3 sentence executive summary of this website audit.
+
+      Results: #{passed_count} passed, #{warning_count} warnings, #{failed_count} failed
+
+      Key issues found:
+      #{key_findings.first(5).join("\n")}
+
+      Focus on the most critical findings and actionable improvements.
+    PROMPT
+
+    openai = OpenaiService.new(
+      system_prompt: "You are a concise website audit expert. Generate brief executive summaries.",
+      temperature: audit.ai_config["temperature"] || 0.3,
+      model: audit.ai_config["model"] || "claude-opus-4-6"
+    )
+
+    summary = openai.chat(prompt)
+
+    if summary
+      audit.update(ai_summary: summary)
+      Rails.logger.info "✓ Generated AI summary"
+    end
+  rescue => e
+    Rails.logger.error "Failed to generate summary: #{e.message}"
+    # Non-critical, continue without summary
   end
 end

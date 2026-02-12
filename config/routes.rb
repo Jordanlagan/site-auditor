@@ -8,7 +8,10 @@ Rails.application.routes.draw do
       get :status
       get "pages/:page_id", to: "audits#page_details", as: :page_details
     end
+    resources :wireframes, only: [ :index, :create ]
   end
+
+  resources :wireframes, only: [ :show, :destroy ]
 
   # Test management routes
   resources :test_groups, path: "test-groups" do

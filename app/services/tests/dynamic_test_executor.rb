@@ -110,7 +110,7 @@ module Tests
           rescue
             true # Assume relative URLs are internal
           end
-        }.first(30)
+        }.first(20)
       when "external_links"
         all_links = page_data.links || []
         page_url = URI.parse(discovered_page.url)
@@ -121,7 +121,7 @@ module Tests
           rescue
             false
           end
-        }.first(30)
+        }.first(20)
 
       # Visual sources
       when "colors"
@@ -159,7 +159,7 @@ module Tests
 
       # Get AI config from audit (simplified - no test.ai_config anymore)
       ai_config = audit.ai_config.presence || {}
-      model = ai_config["model"] || ai_config[:model] || "gpt-4o"
+      model = ai_config["model"] || ai_config[:model] || "claude-opus-4-6"
       temperature = (ai_config["temperature"] || ai_config[:temperature] || 0.3).to_f
 
       # Compact AI request logging
@@ -175,7 +175,12 @@ module Tests
         max_tokens: 2000
       )
 
-      return create_result(status: :not_applicable, summary: "AI analysis unavailable") unless response
+      return create_result(
+        status: :not_applicable,
+        summary: "AI analysis unavailable",
+        ai_prompt: full_prompt,
+        data_context: data_context
+      ) unless response
 
       # Parse JSON response
       json_text = response.strip.gsub(/^```json\s*\n/, "").gsub(/\n```\s*$/, "")
@@ -187,7 +192,10 @@ module Tests
 
         create_result(
           status: parsed["status"],
-          summary: parsed["summary"]
+          summary: parsed["summary"],
+          ai_prompt: full_prompt,
+          data_context: data_context,
+          ai_response: response
         )
       rescue JSON::ParserError => e
         Rails.logger.error "Failed to parse AI response for test #{test.test_key}: #{e.message}"
@@ -195,7 +203,10 @@ module Tests
 
         create_result(
           status: :not_applicable,
-          summary: response.first(200)
+          summary: response.first(200),
+          ai_prompt: full_prompt,
+          data_context: data_context,
+          ai_response: response
         )
       end
     end
@@ -245,11 +256,15 @@ module Tests
     def format_value(value)
       case value
       when String
-        value.length > 1000 ? "#{value.first(1000)}..." : value
+        # For HTML content, allow much more (25K) to capture actual page content
+        # For other strings, keep reasonable limit (2K)
+        max_length = value.include?("<html") || value.include?("<!DOCTYPE") ? 25000 : 2000
+        value.length > max_length ? "#{value.first(max_length)}..." : value
       when Array
         value.first(10).to_json
       when Hash
-        JSON.pretty_generate(value).lines.first(20).join
+        # Don't truncate hashes - let full content through
+        JSON.pretty_generate(value)
       else
         value.to_s
       end
@@ -284,14 +299,17 @@ module Tests
       PROMPT
     end
 
-    def create_result(status:, summary: nil)
+    def create_result(status:, summary: nil, ai_prompt: nil, data_context: nil, ai_response: nil)
       TestResult.create!(
         discovered_page: discovered_page,
         audit: audit,
         test_key: test.test_key,
         test_category: test.test_group.name.downcase.gsub(/\s+/, "_"),
         status: status,
-        summary: summary
+        summary: summary,
+        ai_prompt: ai_prompt,
+        data_context: data_context,
+        ai_response: ai_response
       )
     end
 

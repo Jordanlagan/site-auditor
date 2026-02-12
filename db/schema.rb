@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_02_04_000004) do
+ActiveRecord::Schema[7.2].define(version: 2026_02_10_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -146,6 +146,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_02_04_000004) do
     t.text "summary"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "ai_prompt"
+    t.jsonb "data_context", default: {}
+    t.text "ai_response"
     t.index ["audit_id", "status"], name: "index_test_results_on_audit_id_and_status"
     t.index ["audit_id", "test_category"], name: "index_test_results_on_audit_id_and_test_category"
     t.index ["audit_id"], name: "index_test_results_on_audit_id"
@@ -168,6 +171,17 @@ ActiveRecord::Schema[7.2].define(version: 2026_02_04_000004) do
     t.index ["test_key"], name: "index_tests_on_test_key", unique: true
   end
 
+  create_table "wireframes", force: :cascade do |t|
+    t.bigint "audit_id", null: false
+    t.string "title", null: false
+    t.string "file_path", null: false
+    t.jsonb "config_used", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["audit_id"], name: "index_wireframes_on_audit_id"
+    t.index ["created_at"], name: "index_wireframes_on_created_at"
+  end
+
   add_foreign_key "adaptive_tests", "discovered_pages"
   add_foreign_key "audit_issues", "audits"
   add_foreign_key "audit_questions", "audits"
@@ -178,4 +192,5 @@ ActiveRecord::Schema[7.2].define(version: 2026_02_04_000004) do
   add_foreign_key "test_results", "audits"
   add_foreign_key "test_results", "discovered_pages"
   add_foreign_key "tests", "test_groups"
+  add_foreign_key "wireframes", "audits"
 end

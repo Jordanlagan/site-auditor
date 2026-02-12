@@ -107,8 +107,7 @@ module AuditWorkflow
       pages_to_analyze = [ homepage, *other_pages ].compact.uniq
 
       pages_to_analyze.each do |page|
-        # Capture screenshots
-        ScreenshotService.new(page).capture_both
+        # Screenshots are captured by PageDataCollector during data collection phase
 
         # Run adaptive tests based on page context and user responses
         analyzer = AdaptiveAnalyzer.new(page)

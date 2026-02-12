@@ -13,9 +13,18 @@ module Tests
 
       discovered_page.update(testing_status: "testing")
 
-      tests_to_run = Test.active.ordered
-
-      Rails.logger.info "  Found #{tests_to_run.count} tests to run"
+      # Check if audit has specific test_ids selected
+      if audit.test_ids.present? && audit.test_ids.any?
+        tests_to_run = Test.active.where(id: audit.test_ids).ordered
+        Rails.logger.info "  Running #{tests_to_run.count} selected tests (from audit.test_ids)"
+      elsif audit.test_ids == []
+        # Empty array means: don't run any tests
+        tests_to_run = Test.none
+        Rails.logger.info "  Skipping all tests (test_ids is empty)"
+      else
+        tests_to_run = Test.active.ordered
+        Rails.logger.info "  Running all #{tests_to_run.count} active tests"
+      end
 
       # Queue all tests as individual jobs to run asynchronously
       tests_to_run.each do |test|

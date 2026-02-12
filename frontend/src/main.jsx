@@ -14,6 +14,7 @@ createRoot(document.getElementById('root')).render(
       <Navigation />
       <Routes>
         <Route path="/" element={<App />} />
+        <Route path="/audits/:id" element={<App />} />
         <Route path="/test-library" element={<TestLibrary />} />
         <Route path="/test-builder" element={<TestBuilder />} />
         <Route path="/test-builder/:id" element={<TestBuilder />} />

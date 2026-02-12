@@ -6,6 +6,7 @@ class Test < ApplicationRecord
   DATA_SOURCES = %w[
     page_content
     page_html
+
     headings
     asset_urls
     performance_data
@@ -13,19 +14,6 @@ class Test < ApplicationRecord
     external_links
     colors
     screenshots
-    html_content
-    fonts
-    images
-    scripts
-    stylesheets
-    links
-    meta_title
-    meta_description
-    meta_tags
-    structured_data
-    performance_metrics
-    asset_distribution
-    total_page_weight
   ].freeze
 
   validates :name, presence: true

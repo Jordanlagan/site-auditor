@@ -97,9 +97,14 @@ const TestLibrary = () => {
       });
       
       const result = await response.json();
-      alert(`Imported ${result.imported} tests. Errors: ${result.errors.length}`);
-      loadData();
-      setShowImport(false);
+      
+      if (result.error) {
+        alert(`Import failed: ${result.error}`);
+      } else {
+        alert(`Imported ${result.imported} tests. Errors: ${result.errors?.length || 0}`);
+        loadData();
+        setShowImport(false);
+      }
     } catch (error) {
       console.error('Error importing tests:', error);
     }
@@ -190,38 +195,28 @@ const TestLibrary = () => {
               const getDataSourceIcon = (source) => {
                 const icons = {
                   'page_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v8h8V4H4zm2 2h4v1H6V6zm0 2h4v1H6V8z"/></svg>',
-                  'html_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3l-3 3 3 3V7h6v2l3-3-3-3v2H5V3z"/></svg>',
-                  'screenshots': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2.5"/></svg>',
-                  'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-weight="bold">H</text></svg>',
-                  'meta_tags': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h4l2 5 2-5h4L12 13h-2L8 8l-2 5H4L3 3z"/></svg>',
-                  'structured_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v2H2V4zm0 4h12v2H2V8zm0 4h12v2H2v-2z"/></svg>',
-                  'fonts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><text x="2" y="12" font-size="12" font-style="italic">A</text></svg>',
-                  'colors': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="5" r="3" fill="#CE6262"/><circle cx="11" cy="5" r="3" fill="#4A9EFF"/><circle cx="8" cy="10" r="3" fill="#62CE8B"/></svg>',
-                  'images': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="6.5" r="1.5"/><path d="M2 11l3-3 2 2 4-4 3 3v2H2z"/></svg>',
-                  'scripts': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 5l4 3-4 3V5zm6 0v6h2V5h-2z"/></svg>',
-                  'stylesheets': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v2H3V2zm0 4h10v2H3V6zm0 4h6v2H3v-2z"/></svg>',
-                  'performance_metrics': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zm0 2v4l3 2-1 1-4-3V4h2z"/></svg>',
-                  'links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>',
-                  'computed_styles': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2l6 4v6l-6 4-6-4V6l6-4zm0 2L4 6.5v3L8 12l4-2.5v-3L8 4z"/></svg>'
+                  'page_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3L2 8l3 5v-2L3 8l2-3V3zm6 0v2l2 3-2 3v2l3-5-3-5z"/></svg>',
+                  'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h2v4h4V3h2v10h-2V9H5v4H3V3z"/></svg>',
+                  'asset_urls': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v2H4v8h3v2H2V3zm7 0h5v12h-5v-2h3V5h-3V3z"/><rect x="6" y="7" width="4" height="2"/></svg>',
+                  'performance_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 106 6h-2a4 4 0 11-4-4V2zm1 3v3h3a4 4 0 00-3-3z"/></svg>',
+                  'internal_links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.5 9.5l-2 2a2 2 0 11-2.8-2.8l2-2m8.6-2.2l-2 2a2 2 0 102.8 2.8l2-2M5.5 10.5l5-5"/></svg>',
+                  'external_links': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11 3h2v2h-2V3zM9 5V3h2v2H9zm2 2V5h2v2h-2zm0 2V7h2v2h-2zm-2 2V9h2v2H9zM3 13h6v-2H5V5h6V3H3v10z"/></svg>',
+                  'colors': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="5" cy="5" r="3"/><circle cx="11" cy="5" r="2.5" opacity="0.7"/><circle cx="8" cy="10" r="2.5" opacity="0.8"/></svg>',
+                  'screenshots': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="3" width="12" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="7.5" r="2.5"/></svg>'
                 };
                 return icons[source] || '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>';
               };
 
               const sourceLabels = {
                 'page_content': 'Page Content',
-                'html_content': 'HTML Content',
-                'screenshots': 'Screenshots',
+                'page_html': 'Page HTML',
                 'headings': 'Headings',
-                'meta_tags': 'Meta Tags',
-                'structured_data': 'Structured Data',
-                'fonts': 'Fonts',
+                'asset_urls': 'Asset URLs',
+                'performance_data': 'Performance Data',
+                'internal_links': 'Internal Links',
+                'external_links': 'External Links',
                 'colors': 'Colors',
-                'images': 'Images',
-                'scripts': 'Scripts',
-                'stylesheets': 'Stylesheets',
-                'performance_metrics': 'Performance Metrics',
-                'links': 'Links',
-                'computed_styles': 'Computed Styles'
+                'screenshots': 'Screenshots'
               };
 
               return (

@@ -129,11 +129,23 @@ class WireframeGenerator
     page_data.images
       .select { |img| img["src"].present? && !img["src"].include?("data:image") }
       .map { |img| img["src"] }
+      .first(30)  # Limit to top 30 images to reduce prompt size
   end
 
   def build_design_transfer_prompt(design_system, inspiration_data)
     # DEPRECATED - Replaced with two-phase generation
     # Keeping for reference
+  end
+
+  def extract_text_from_html(html)
+    # Extract clean text content from HTML for prompt efficiency
+    text = html.to_s
+              .gsub(/<script[^>]*>.*?<\/script>/im, "")  # Remove scripts
+              .gsub(/<style[^>]*>.*?<\/style>/im, "")    # Remove styles
+              .gsub(/<[^>]+>/, " ")                       # Remove all tags
+              .gsub(/\s+/, " ")                           # Collapse whitespace
+              .strip
+    text[0..5000]  # Limit to 5K chars - enough for content, way less than 30K HTML
   end
 
   def extract_design_patterns(inspiration_data, use_sonnet: false)
@@ -276,13 +288,13 @@ class WireframeGenerator
       IMAGES (use these):
       #{design_system[:images].join("\n")}
 
-      HTML (extract text content from here):
-      #{original_html[0..30000]}
+      TEXT CONTENT (use this text in your wireframe):
+      #{extract_text_from_html(original_html)}
 
       ========================================
       DESIGN PATTERNS (from #{inspiration_url}):
       ========================================
-      #{JSON.pretty_generate(design_patterns)}
+      #{JSON.generate(design_patterns)}
 
       ========================================
       YOUR TASK:
@@ -317,8 +329,8 @@ class WireframeGenerator
          - Example: #{design_patterns['components'].first(2).map { |c| "#{c['name']}: #{c['structure']}" }.join('; ')}
 
       7. ICONS & GRAPHICS:
-         - Use simple inline SVG icons instead of emoji characters for better display consistency
-         - SVGs provide better cross-platform consistency and professional appearance
+         - Use compact inline SVG icons (max 40 chars each) OR emoji for simplicity
+         - Example compact SVG: <svg width="16" height="16"><circle cx="8" cy="8" r="6"/></svg>
 
       CRITICAL OUTPUT FORMAT:
       - Start with: <style>...all CSS here...</style>
@@ -327,6 +339,11 @@ class WireframeGenerator
       - Do NOT use markdown or code blocks
       - Include ALL CSS inline in the <style> tag
       - Ensure proper UTF-8 encoding for all special characters
+
+      OPTIMIZATION:
+      - MINIFY your output (remove unnecessary whitespace, newlines, indentation)
+      - Use compact CSS selectors where possible
+      - Keep SVG icons simple and compact
 
       SIGNATURE ANIMATION (ALWAYS ADD):
       At the END of your <style> tag, add:
@@ -338,7 +355,7 @@ class WireframeGenerator
       }
       * { animation: unveilFromBlack 1.5s ease-out; }
 
-      Return ONLY the raw HTML starting with <style>.
+      Return ONLY the raw minified HTML starting with <style>.
     PROMPT
 
     Rails.logger.info "="*80

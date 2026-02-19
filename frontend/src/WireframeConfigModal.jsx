@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react'
 import './WireframeConfigModal.css'
+import WireframeStreamingModal from './WireframeStreamingModal'
+import Icon from './components/Icon'
 
 function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGenerate }) {
   const [currentStep, setCurrentStep] = useState(1)
+  const [showStreamingModal, setShowStreamingModal] = useState(false)
   const [config, setConfig] = useState({
     variations_count: 1,
     primary_colors: [], // Array of { color: '#fff', tag: 'Primary Background' }
+    selected_images: [], // Array of { src: 'url', label: 'optional' } (empty = all included by default)
     inspiration_urls: [''],
-    custom_prompt: ''
+    custom_prompt: '',
+    save_as_default_colors: false,
+    save_as_default_images: false
   })
 
   const colorTags = [
@@ -26,8 +32,22 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
 
-  // Extract available colors from page data
+  // Extract available colors and images from page data
   const availableColors = pageData?.colors?.slice(0, 10) || []
+  
+  // Deduplicate images by src URL
+  const availableImages = (() => {
+    const imageMap = new Map()
+    const allImages = pageData?.images || []
+    
+    allImages.forEach(img => {
+      if (img.src && !imageMap.has(img.src)) {
+        imageMap.set(img.src, img)
+      }
+    })
+    
+    return Array.from(imageMap.values())
+  })()
 
   // Extract recommendations from audit test results
   const extractRecommendations = () => {
@@ -52,8 +72,21 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
       setCurrentStep(1)
       setError(null)
       setGenerating(false)
-      // Pre-select top 3 colors with default tags
-      if (availableColors.length > 0) {
+      
+      // Check if there's a saved default color profile
+      const defaultColorProfile = audit?.ai_config?.default_color_profile
+      const defaultImageProfile = audit?.ai_config?.default_image_profile
+      
+      if (defaultColorProfile && defaultColorProfile.length > 0) {
+        // Use saved default color profile
+        setConfig(prev => ({
+          ...prev,
+          primary_colors: defaultColorProfile,
+          selected_images: defaultImageProfile || [],
+          custom_prompt: extractRecommendations()
+        }))
+      } else if (availableColors.length > 0) {
+        // Pre-select top 3 colors with default tags if no saved profile
         const defaultTags = ['Primary Background', 'Text Primary', 'Accent/CTA']
         setConfig(prev => ({
           ...prev,
@@ -61,11 +94,13 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
             color: c.color,
             tag: defaultTags[idx] || 'Primary Background'
           })),
+          selected_images: defaultImageProfile || [],
           custom_prompt: extractRecommendations()
         }))
       } else {
         setConfig(prev => ({
           ...prev,
+          selected_images: defaultImageProfile || [],
           custom_prompt: extractRecommendations()
         }))
       }
@@ -96,6 +131,53 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
       ...prev,
       primary_colors: prev.primary_colors.filter((_, idx) => idx !== index)
     }))
+  }
+
+  const handleImageToggle = (imageSrc) => {
+    setConfig(prev => {
+      const isSelected = prev.selected_images.find(img => img.src === imageSrc)
+      if (isSelected) {
+        // Remove from selection
+        return {
+          ...prev,
+          selected_images: prev.selected_images.filter(img => img.src !== imageSrc)
+        }
+      } else {
+        // Add to selection with empty label
+        return {
+          ...prev,
+          selected_images: [...prev.selected_images, { src: imageSrc, label: '' }]
+        }
+      }
+    })
+  }
+
+  const handleImageLabelChange = (imageSrc, label) => {
+    setConfig(prev => ({
+      ...prev,
+      selected_images: prev.selected_images.map(img => 
+        img.src === imageSrc ? { ...img, label } : img
+      )
+    }))
+  }
+
+  const toggleAllImages = () => {
+    setConfig(prev => {
+      const allExplicitlySelected = prev.selected_images.length === availableImages.length
+      const defaultAllSelected = prev.selected_images.length === 0
+      
+      if (allExplicitlySelected || defaultAllSelected) {
+        // Deselect all - select just first image to break "default all" behavior
+        // User can then deselect this one manually if they want zero images
+        if (availableImages.length > 0) {
+          return { ...prev, selected_images: [{ src: availableImages[0].src, label: '' }] }
+        }
+        return prev
+      } else {
+        // Select all explicitly
+        return { ...prev, selected_images: availableImages.map(img => ({ src: img.src, label: '' })) }
+      }
+    })
   }
 
   const handleAddCustomColor = () => {
@@ -143,7 +225,7 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
   }
 
   const handleNext = () => {
-    if (currentStep < 4) {
+    if (currentStep < 5) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -213,8 +295,9 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
         <div className="wireframe-modal-progress">
           <div className={`progress-step ${currentStep >= 1 ? 'active' : ''}`}>1. Count</div>
           <div className={`progress-step ${currentStep >= 2 ? 'active' : ''}`}>2. Colors</div>
-          <div className={`progress-step ${currentStep >= 3 ? 'active' : ''}`}>3. Inspiration</div>
-          <div className={`progress-step ${currentStep >= 4 ? 'active' : ''}`}>4. Custom Prompt</div>
+          <div className={`progress-step ${currentStep >= 3 ? 'active' : ''}`}>3. Images</div>
+          <div className={`progress-step ${currentStep >= 4 ? 'active' : ''}`}>4. Inspiration</div>
+          <div className={`progress-step ${currentStep >= 5 ? 'active' : ''}`}>5. Custom</div>
         </div>
 
         <div className="wireframe-modal-body">
@@ -324,13 +407,167 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
                       </div>
                     ))}
                   </div>
+                  
+                  <div className="save-default-checkbox">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={config.save_as_default_colors}
+                        onChange={(e) => setConfig(prev => ({ 
+                          ...prev, 
+                          save_as_default_colors: e.target.checked 
+                        }))}
+                      />
+                      <span>Save as default color profile</span>
+                    </label>
+                    <p className="checkbox-description">
+                      Save this color selection for future wireframe generations
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Step 3: Inspiration URLs */}
+          {/* Step 3: Images */}
           {currentStep === 3 && (
+            <div className="wireframe-step">
+              <h3>Select Images (Optional)</h3>
+              <p className="step-description">
+                Choose which images to include in the wireframe. All images are included by default.
+              </p>
+              
+              {availableImages.length > 0 ? (
+                <>
+                  <div className="image-selection-controls">
+                    <button
+                      type="button"
+                      onClick={toggleAllImages}
+                      className="toggle-all-btn"
+                    >
+                      {config.selected_images.length === availableImages.length || config.selected_images.length === 0
+                        ? '☑ Deselect All' 
+                        : '☐ Select All'}
+                    </button>
+                    <span className="image-count">
+                      {config.selected_images.length === 0 
+                        ? `All ${availableImages.length} images included` 
+                        : `${config.selected_images.length} of ${availableImages.length} images selected`}
+                    </span>
+                  </div>
+                  
+                  <div className="image-grid">
+                    {availableImages.map((imageData, idx) => {
+                      // When selected_images is empty, all are considered selected (default)
+                      const selectedImage = config.selected_images.find(img => img.src === imageData.src)
+                      const isIncluded = config.selected_images.length === 0 || selectedImage
+                      const imageSrc = imageData.src
+                      
+                      // Skip images without valid src
+                      if (!imageSrc || imageSrc === '' || imageSrc === 'null') {
+                        return null
+                      }
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className={`image-option ${isIncluded ? 'selected' : ''}`}
+                          onClick={() => handleImageToggle(imageSrc)}
+                        >
+                          <img
+                            src={imageSrc}
+                            alt={imageData.alt || `Image ${idx + 1}`}
+                            className="image-thumbnail"
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                              e.target.nextSibling.style.display = 'flex'
+                            }}
+                          />
+                          <div className="image-placeholder" style={{ display: 'none' }}>
+                            <Icon name="image" size={32} color="#6b7280" />
+                          </div>
+                          <div className="image-checkbox">
+                            {isIncluded ? <Icon name="check" size={16} /> : <div className="checkbox-empty" />}
+                          </div>
+                          {imageData.alt && (
+                            <div className="image-alt" title={imageData.alt}>
+                              {imageData.alt.substring(0, 30)}{imageData.alt.length > 30 ? '...' : ''}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  
+                  {/* Image Labels Section */}
+                  {config.selected_images.length > 0 && (
+                    <div className="selected-images-section">
+                      <h4>Image Labels (Optional):</h4>
+                      <p className="section-note">Add descriptive labels to help the AI use images appropriately (e.g., "Hero Image", "Product Photo", "Team Photo")</p>
+                      <div className="selected-images-list">
+                        {config.selected_images.map((imageObj, idx) => (
+                          <div key={idx} className="selected-image-row">
+                            <img
+                              src={imageObj.src}
+                              alt={`Selected ${idx + 1}`}
+                              className="selected-image-thumb"
+                              onError={(e) => {
+                                e.target.style.display = 'none'
+                              }}
+                            />
+                            <input
+                              type="text"
+                              className="image-label-input"
+                              placeholder="Optional label (e.g., Hero Image)"
+                              value={imageObj.label || ''}
+                              onChange={(e) => handleImageLabelChange(imageObj.src, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <button
+                              className="remove-image-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleImageToggle(imageObj.src)
+                              }}
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="save-default-checkbox">
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={config.save_as_default_images}
+                            onChange={(e) => setConfig(prev => ({ 
+                              ...prev, 
+                              save_as_default_images: e.target.checked 
+                            }))}
+                          />
+                          <span>Save as default image selection</span>
+                        </label>
+                        <p className="checkbox-description">
+                          Save this image selection for future wireframe generations
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="image-note">
+                    💡 Tip: By default, all images are included. Deselect images you don't want in the wireframe.
+                  </div>
+                </>
+              ) : (
+                <div className="no-images">No images available from page data</div>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Inspiration URLs */}
+          {currentStep === 4 && (
             <div className="wireframe-step">
               <h3>Add Inspiration Websites</h3>
               <p className="step-description">
@@ -374,8 +611,8 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
             </div>
           )}
 
-          {/* Step 4: Custom Prompt */}
-          {currentStep === 4 && (
+          {/* Step 5: Custom Prompt */}
+          {currentStep === 5 && (
             <div className="wireframe-step">
               <h3>Custom AI Prompt (Optional)</h3>
               <p className="step-description">
@@ -410,31 +647,66 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
         </div>
 
         <div className="wireframe-modal-footer">
-          <button className="btn-secondary" onClick={onClose} disabled={generating}>
-            Cancel
-          </button>
           <div className="footer-actions">
             {currentStep > 1 && (
               <button className="btn-secondary" onClick={handleBack} disabled={generating}>
                 Back
               </button>
             )}
-            {currentStep < 4 ? (
-              <button className="btn-primary" onClick={handleNext}>
-                Next
-              </button>
+            {currentStep < 5 ? (
+              <div style={{ marginLeft: 'auto' }}>
+                <button className="btn-primary" onClick={handleNext}>
+                  Next
+                </button>
+              </div>
             ) : (
-              <button
-                className="btn-primary"
-                onClick={handleGenerate}
-                disabled={generating || config.primary_colors.length === 0 || config.inspiration_urls.filter(u => u.trim()).length === 0}
-              >
-                {generating ? 'Generating...' : 'Generate Wireframes'}
-              </button>
+              <div className="footer-generate-section">
+                <div className="generate-buttons-grid">
+                  <button
+                    className="btn-secondary btn-background"
+                    onClick={handleGenerate}
+                    disabled={generating || config.primary_colors.length === 0 || config.inspiration_urls.filter(u => u.trim()).length === 0}
+                  >
+                    {generating ? 'Generating...' : 'Generate (Background)'}
+                  </button>
+                  <button
+                    className="btn-primary btn-live-preview"
+                    onClick={() => {
+                      if (config.primary_colors.length === 0) {
+                        setError('Please select at least one color')
+                        return
+                      }
+                      const validUrls = config.inspiration_urls.filter(url => url.trim() !== '')
+                      if (validUrls.length === 0) {
+                        setError('Please add at least one inspiration website URL')
+                        return
+                      }
+                      setShowStreamingModal(true)
+                    }}
+                    disabled={generating || config.primary_colors.length === 0 || config.inspiration_urls.filter(u => u.trim()).length === 0}
+                  >
+                    Generate with Live Preview
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
       </div>
+      
+      {/* Streaming Modal */}
+      <WireframeStreamingModal
+        isOpen={showStreamingModal}
+        onClose={(success) => {
+          setShowStreamingModal(false)
+          if (success) {
+            onGenerate(1) // Refresh the wireframe list
+            onClose()
+          }
+        }}
+        auditId={auditId}
+        config={config}
+      />
     </div>
   )
 }

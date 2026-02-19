@@ -240,7 +240,7 @@ class AuditOrchestratorJob < ApplicationJob
       key_findings << "- #{result.test.name}: #{result.ai_analysis&.truncate(150)}"
     end
 
-    prompt = <<~PROMPT
+    user_prompt = <<~PROMPT
       Generate a concise 2-3 sentence executive summary of this website audit.
 
       Results: #{passed_count} passed, #{warning_count} warnings, #{failed_count} failed
@@ -251,13 +251,17 @@ class AuditOrchestratorJob < ApplicationJob
       Focus on the most critical findings and actionable improvements.
     PROMPT
 
-    openai = OpenaiService.new(
-      system_prompt: "You are a concise website audit expert. Generate brief executive summaries.",
-      temperature: audit.ai_config["temperature"] || 0.3,
-      model: audit.ai_config["model"] || "claude-opus-4-6"
-    )
+    messages = [
+      { role: "system", content: "You are a concise website audit expert. Generate brief executive summaries." },
+      { role: "user", content: user_prompt }
+    ]
 
-    summary = openai.chat(prompt)
+    summary = OpenaiService.chat(
+      messages: messages,
+      model: audit.ai_config["model"] || "claude-opus-4-6",
+      temperature: audit.ai_config["temperature"] || 0.3,
+      max_tokens: 500
+    )
 
     if summary
       audit.update(ai_summary: summary)

@@ -7,6 +7,7 @@ import './test-json-details.css'
 import './test-selection.css'
 import './lightbox.css'
 import WireframeConfigModal from './WireframeConfigModal'
+import WireframeStreamingModal from './WireframeStreamingModal'
 
 function App() {
   const { id: auditIdParam } = useParams()
@@ -40,6 +41,11 @@ function App() {
   const [wireframesGenerating, setWireframesGenerating] = useState(false)
   const [wireframesExpected, setWireframesExpected] = useState(0)
   const [generationStartedAt, setGenerationStartedAt] = useState(null)
+  const [regenerateTarget, setRegenerateTarget] = useState(null) // { wireframeId, title }
+  const [regeneratePrompt, setRegeneratePrompt] = useState('')
+  const [regenerateSelector, setRegenerateSelector] = useState('')
+  const [showRegenerateStreaming, setShowRegenerateStreaming] = useState(false)
+  const [designBriefWireframe, setDesignBriefWireframe] = useState(null)
 
   console.log(currentAudit)
 
@@ -853,12 +859,42 @@ function App() {
                               </div>
                             </div>
                             <div className="wireframe-info">
-                              <div className="wireframe-title" title={wireframe.title}>{wireframe.title}</div>
+                              <div className="wireframe-title-row">
+                                <div className="wireframe-title" title={wireframe.title}>{wireframe.title}</div>
+                                {wireframe.config_used?.design_philosophy && (
+                                  <div
+                                    className="wireframe-info-icon"
+                                    title="View design brief"
+                                    onClick={(e) => { e.stopPropagation(); setDesignBriefWireframe(wireframe) }}
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <circle cx="12" cy="12" r="10"/>
+                                      <line x1="12" y1="16" x2="12" y2="12"/>
+                                      <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
                               <div className="wireframe-date">
                                 {new Date(wireframe.created_at).toLocaleDateString()}
                               </div>
                             </div>
                             <div className="wireframe-actions">
+                              <button 
+                                className="wireframe-regen-btn"
+                                onClick={() => {
+                                  setRegenerateTarget({ wireframeId: wireframe.id, title: wireframe.title })
+                                  setRegeneratePrompt('')
+                                  setRegenerateSelector('')
+                                }}
+                                title="Regenerate with changes"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="23 4 23 10 17 10"/>
+                                  <polyline points="1 20 1 14 7 14"/>
+                                  <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                                </svg>
+                              </button>
                               <button 
                                 className="wireframe-view-btn"
                                 onClick={() => openWireframe(wireframe.url)}
@@ -907,6 +943,175 @@ function App() {
           pageData={currentAudit.pages[0].page_data}
           audit={currentAudit}
           onGenerate={handleWireframeGenerate}
+        />
+      )}
+
+      {/* Design Brief Modal */}
+      {designBriefWireframe && (() => {
+        const dp = designBriefWireframe.config_used?.design_patterns
+        const philosophy = designBriefWireframe.config_used?.design_philosophy
+        return (
+          <div className="modal-overlay" onClick={() => setDesignBriefWireframe(null)}>
+            <div className="design-brief-modal" onClick={e => e.stopPropagation()}>
+              <div className="design-brief-header">
+                <div>
+                  <h3>Design Brief</h3>
+                  <p className="design-brief-subtitle">{designBriefWireframe.title}</p>
+                </div>
+                <button className="modal-close-btn" onClick={() => setDesignBriefWireframe(null)}>&times;</button>
+              </div>
+              <div className="design-brief-body">
+                {philosophy && (
+                  <div className="design-brief-section">
+                    <h4>Design Philosophy</h4>
+                    <p>{philosophy}</p>
+                  </div>
+                )}
+                {dp?.font_pairing_strategy && (
+                  <div className="design-brief-section">
+                    <h4>Typography Strategy</h4>
+                    <p>{dp.font_pairing_strategy}</p>
+                  </div>
+                )}
+                {dp?.typography && (
+                  <div className="design-brief-section">
+                    <h4>Type Scale</h4>
+                    <div className="design-brief-grid">
+                      {Object.entries(dp.typography).filter(([k]) => k !== 'font_family').map(([key, val]) => (
+                        <div key={key} className="design-brief-token">
+                          <span className="token-name">{key}</span>
+                          <span className="token-value">{typeof val === 'object' ? `${val.size} / ${val.weight}` : val}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {dp.typography.font_family && <p className="design-brief-font">Font: {dp.typography.font_family}</p>}
+                  </div>
+                )}
+                {dp?.spacing && (
+                  <div className="design-brief-section">
+                    <h4>Spacing</h4>
+                    <div className="design-brief-grid">
+                      {Object.entries(dp.spacing).map(([key, val]) => (
+                        <div key={key} className="design-brief-token">
+                          <span className="token-name">{key.replace(/_/g, ' ')}</span>
+                          <span className="token-value">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dp?.layout && (
+                  <div className="design-brief-section">
+                    <h4>Layout</h4>
+                    <div className="design-brief-grid">
+                      <div className="design-brief-token">
+                        <span className="token-name">system</span>
+                        <span className="token-value">{dp.layout.system}</span>
+                      </div>
+                      <div className="design-brief-token">
+                        <span className="token-name">max width</span>
+                        <span className="token-value">{dp.layout.container_max_width}</span>
+                      </div>
+                    </div>
+                    {dp.layout.sections?.length > 0 && (
+                      <div className="design-brief-sections-list">
+                        {dp.layout.sections.map((s, i) => (
+                          <div key={i} className="design-brief-section-item">
+                            <span className="section-type-badge">{s.type}</span>
+                            <span className="section-layout-desc">{s.layout}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {dp?.components?.length > 0 && (
+                  <div className="design-brief-section">
+                    <h4>Components</h4>
+                    <div className="design-brief-components">
+                      {dp.components.map((c, i) => (
+                        <div key={i} className="design-brief-component">
+                          <div className="component-name">{c.name}</div>
+                          {c.structure && <p className="component-detail"><strong>Structure:</strong> {c.structure}</p>}
+                          {c.styling && <p className="component-detail"><strong>Styling:</strong> {c.styling}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dp?.responsive && (
+                  <div className="design-brief-section">
+                    <h4>Responsive</h4>
+                    {dp.responsive.breakpoints && <p><strong>Breakpoints:</strong> {dp.responsive.breakpoints.join(', ')}</p>}
+                    {dp.responsive.mobile_patterns && <p>{dp.responsive.mobile_patterns}</p>}
+                  </div>
+                )}
+                {!dp && !philosophy && (
+                  <p className="design-brief-empty">No design brief available for this wireframe. Regenerate it to capture full design patterns.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Regenerate Prompt Modal */}
+      {regenerateTarget && !showRegenerateStreaming && (
+        <div className="modal-overlay" onClick={() => setRegenerateTarget(null)}>
+          <div className="regenerate-modal" onClick={e => e.stopPropagation()}>
+            <div className="regenerate-modal-header">
+              <h3>Regenerate Wireframe</h3>
+              <button className="modal-close-btn" onClick={() => setRegenerateTarget(null)}>&times;</button>
+            </div>
+            <div className="regenerate-modal-body">
+              <p className="regenerate-source">Based on: <strong>{regenerateTarget.title}</strong></p>
+              <label className="regenerate-label">What changes would you like?</label>
+              <textarea
+                className="regenerate-textarea"
+                value={regeneratePrompt}
+                onChange={e => setRegeneratePrompt(e.target.value)}
+                placeholder="e.g. Make the hero section more impactful, use larger product images, add more social proof..."
+                rows={4}
+                autoFocus
+              />
+              <label className="regenerate-label" style={{ marginTop: '14px' }}>Target section <span className="regenerate-optional">(optional)</span></label>
+              <input
+                className="regenerate-selector-input"
+                type="text"
+                value={regenerateSelector}
+                onChange={e => setRegenerateSelector(e.target.value)}
+                placeholder="CSS selector — e.g. nav, .hero, #footer, section.pricing"
+              />
+              <p className="regenerate-selector-hint">Only this element will be regenerated and patched into the live preview</p>
+            </div>
+            <div className="regenerate-modal-footer">
+              <button className="btn-secondary" onClick={() => setRegenerateTarget(null)}>Cancel</button>
+              <button
+                className="btn-primary"
+                onClick={() => setShowRegenerateStreaming(true)}
+              >
+                Regenerate with Live Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regenerate Streaming Modal */}
+      {showRegenerateStreaming && regenerateTarget && (
+        <WireframeStreamingModal
+          isOpen={true}
+          onClose={(success) => {
+            setShowRegenerateStreaming(false)
+            setRegenerateTarget(null)
+            if (success && currentAudit?.id) {
+              loadWireframes(currentAudit.id)
+            }
+          }}
+          auditId={currentAudit?.id}
+          config={{ custom_prompt: regeneratePrompt, css_selector: regenerateSelector }}
+          sectionSelector={regenerateSelector}
+          regenerateWireframeId={regenerateTarget.wireframeId}
         />
       )}
     </div>

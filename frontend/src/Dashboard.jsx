@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './Dashboard.css'
+import Icon from './components/Icon'
 
 function Dashboard({ auditId, onClose }) {
   const [status, setStatus] = useState(null)
@@ -162,13 +163,15 @@ function Dashboard({ auditId, onClose }) {
           {/* Status Messages */}
           {status.status === 'complete' && (
             <div className="status-message status-success">
-              ✅ Audit completed successfully!
+              <Icon name="checkCircle" size={20} />
+              <span>Audit completed successfully!</span>
             </div>
           )}
           
           {status.status === 'failed' && (
             <div className="status-message status-error">
-              ❌ Audit failed. Check logs for details.
+              <Icon name="alertCircle" size={20} />
+              <span>Audit failed. Check logs for details.</span>
             </div>
           )}
         </div>

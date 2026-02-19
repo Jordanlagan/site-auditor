@@ -103,7 +103,8 @@ class AuditsController < ApplicationController
       total_tests: audit.total_tests_count,
       pass_rate: audit.pass_rate,
       created_at: audit.created_at,
-      updated_at: audit.updated_at
+      updated_at: audit.updated_at,
+      ai_config: audit.ai_config
     }
 
     # Include test results if complete

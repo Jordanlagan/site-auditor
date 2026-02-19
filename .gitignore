@@ -10,6 +10,7 @@
 # Ignore all environment files (except templates).
 /.env*
 !/.env*.erb
+/config/.env*
 
 # Ignore all logfiles and tempfiles.
 /log/*
@@ -37,3 +38,4 @@
 !/public/screenshots/.keep
 /public/wireframes/*
 !/public/wireframes/.keep
+google-chrome-stable_current_amd64.deb

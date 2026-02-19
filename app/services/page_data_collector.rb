@@ -287,7 +287,25 @@ class PageDataCollector
         }));
       JS
 
-      images || []
+      # Filter out tracking pixels, broken images, and data URIs
+      filtered_images = (images || []).select do |img|
+        src = img["src"] || img[:src]
+        width = img["width"] || img[:width] || 0
+        height = img["height"] || img[:height] || 0
+        
+        # Skip if no src or is data URI
+        next false if src.nil? || src.empty? || src.start_with?("data:")
+        
+        # Skip 1x1 tracking pixels
+        next false if width <= 1 || height <= 1
+        
+        # Skip if naturalWidth/height is 0 (broken/not loaded images)
+        next false if width == 0 || height == 0
+        
+        true
+      end
+
+      filtered_images
     rescue => e
       Rails.logger.warn "Failed to collect images: #{e.message}"
       []

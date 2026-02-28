@@ -237,7 +237,7 @@ class AuditOrchestratorJob < ApplicationJob
     key_findings = []
 
     test_results.where(status: [ "failed", "warning" ]).each do |result|
-      key_findings << "- #{result.test.name}: #{result.ai_analysis&.truncate(150)}"
+      key_findings << "- #{result.test&.name || result.human_test_name}: #{result.summary&.truncate(150)}"
     end
 
     user_prompt = <<~PROMPT

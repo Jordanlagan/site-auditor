@@ -25,6 +25,9 @@ const TestBuilder = () => {
     const icons = {
       'page_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v8h8V4H4zm2 2h4v1H6V6zm0 2h4v1H6V8z"/></svg>',
       'page_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3L2 8l3 5v-2L3 8l2-3V3zm6 0v2l2 3-2 3v2l3-5-3-5z"/></svg>',
+      'head_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v4H3V2zm1 1v2h8V3H4zm-1 5h10v1H3V8zm0 2h7v1H3v-1z"/></svg>',
+      'nav_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v1H2V4zm0 3h12v1H2V7zm0 3h12v1H2v-1z"/></svg>',
+      'body_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 4v7h8V6H4z"/></svg>',
       'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h2v4h4V3h2v10h-2V9H5v4H3V3z"/></svg>',
       'asset_urls': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v2H4v8h3v2H2V3zm7 0h5v12h-5v-2h3V5h-3V3z"/><rect x="6" y="7" width="4" height="2"/></svg>',
       'performance_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 106 6h-2a4 4 0 11-4-4V2zm1 3v3h3a4 4 0 00-3-3z"/></svg>',
@@ -38,14 +41,17 @@ const TestBuilder = () => {
 
   const availableDataSources = [
     { value: 'page_content', label: 'Page Content', description: 'Main text content from the page', tooltip: 'Extracts all visible text from the rendered page. Gets the content users actually see (up to 5000 chars).' },
-    { value: 'page_html', label: 'Page HTML', description: 'Full HTML source code', tooltip: 'Complete page HTML with smart cleaning - removes inline scripts/styles content but keeps structure and all attributes (up to 50,000 chars).' },
+    { value: 'page_html', label: 'Page HTML', description: 'Full HTML source code (legacy)', tooltip: 'Complete page HTML with smart cleaning (up to 50,000 chars). Consider using the split sources below instead.' },
+    { value: 'head_html', label: 'Head HTML', description: 'Meta tags, title, link tags from <head>', tooltip: 'Clean <head> content: meta tags, title, canonical links, Open Graph tags, etc. Scripts and styles stripped (up to 10K chars).' },
+    { value: 'nav_html', label: 'Nav HTML', description: 'Navigation & header markup', tooltip: 'All <nav>, <header>, and [role=navigation] elements with link structure. SVGs and inline styles stripped (up to 15K chars).' },
+    { value: 'body_html', label: 'Body HTML', description: 'Page body without navigation', tooltip: 'Full <body> content with all nav/header elements removed. Clean structural HTML for analyzing main content, footer, sections (up to 80K chars).' },
     { value: 'headings', label: 'Headings', description: 'H1, H2, H3, etc. heading structure', tooltip: 'Extracts all heading elements (H1-H6) with their text content in a structured format.' },
     { value: 'asset_urls', label: 'Asset URLs', description: 'All site assets (images, scripts, fonts, CSS)', tooltip: 'Consolidated list of all assets: images (with alt text), scripts (with async/defer), stylesheets, and fonts. Up to 20 images, 10 scripts, 10 stylesheets.' },
     { value: 'performance_data', label: 'Performance Data', description: 'Page speed, weight, and metrics', tooltip: 'Comprehensive performance metrics: TTFB, First Paint, FCP, DOM Content Loaded, Load Complete, page weight (bytes/KB/MB), asset distribution (bytes & %), resource counts.' },
     { value: 'internal_links', label: 'Internal Links', description: 'Links to pages on same domain', tooltip: 'Links pointing to the same domain or relative URLs. Includes href, text, rel, and target attributes (up to 30 links).' },
     { value: 'external_links', label: 'External Links', description: 'Links to external websites', tooltip: 'Links pointing to different domains. Includes href, text, rel, and target attributes (up to 30 links).' },
     { value: 'colors', label: 'Colors', description: 'Color palette used on the page', tooltip: 'Extracts colors from computed styles (color, backgroundColor, borderColor). Returns top 15 colors by usage count.' },
-    { value: 'screenshots', label: 'Screenshots', description: 'Visual screenshots (Vision API required)', tooltip: 'Desktop (1920x1080) and mobile (375x812) full-page screenshots. Note: Analyzing screenshots requires Claude vision API which is not yet implemented.', disabled: true }
+    { value: 'screenshots', label: 'Screenshots', description: 'Visual screenshots analyzed by Claude Vision', tooltip: 'Desktop (1920x1080) and mobile (375x812) full-page screenshots sent to Claude Vision API for visual analysis of layout, design, UX issues, and more.' }
   ];
 
   useEffect(() => {

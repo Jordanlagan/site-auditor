@@ -75,25 +75,25 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #374151;
+  background: transparent;
   color: #9ca3af;
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 .status-indicator.status-connecting {
-  background: #374151;
+  background: transparent;
   color: #60a5fa;
 }
 
 .status-indicator.status-extracting {
-  background: #374151;
+  background: transparent;
   color: #a78bfa;
-  animation: pulse 2s infinite;
 }
 
 .status-indicator.status-generating {
-  background: #374151;
+  background: transparent;
   color: #60a5fa;
-  animation: pulse 2s infinite;
 }
 
 .status-indicator.status-saving {
@@ -180,9 +180,7 @@
 }
 
 .preview-placeholder-icon {
-  font-size: 4rem;
-  margin-bottom: 16px;
-  opacity: 0.5;
+  margin-bottom: 24px;
 }
 
 .preview-placeholder-text {

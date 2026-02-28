@@ -31,6 +31,12 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
   const [customColor, setCustomColor] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
+  const [manualMediaUrl, setManualMediaUrl] = useState('')
+  const [manualMediaType, setManualMediaType] = useState('image')
+  const [manualMediaLabel, setManualMediaLabel] = useState('')
+  const [importAuditId, setImportAuditId] = useState('')
+  const [importLoading, setImportLoading] = useState(false)
+  const [importStatus, setImportStatus] = useState(null) // { type: 'success'|'error', message: '' }
 
   // Extract available colors and images from page data
   const availableColors = pageData?.colors?.slice(0, 10) || []
@@ -180,6 +186,40 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
     })
   }
 
+  const handleAddManualMedia = () => {
+    const url = manualMediaUrl.trim()
+    if (!url) return
+
+    // Support pasting multiple URLs (one per line)
+    const urls = url.split(/\n/).map(u => u.trim()).filter(u => u.length > 0)
+
+    const newItems = urls
+      .filter(u => !config.selected_images.find(img => img.src === u))
+      .map(u => ({
+        src: u,
+        label: urls.length === 1 ? manualMediaLabel.trim() : '',
+        media_type: manualMediaType,
+        manual: true
+      }))
+
+    if (newItems.length > 0) {
+      setConfig(prev => ({
+        ...prev,
+        selected_images: [...prev.selected_images, ...newItems]
+      }))
+    }
+
+    setManualMediaUrl('')
+    setManualMediaLabel('')
+  }
+
+  const handleRemoveManualMedia = (src) => {
+    setConfig(prev => ({
+      ...prev,
+      selected_images: prev.selected_images.filter(img => img.src !== src)
+    }))
+  }
+
   const handleAddCustomColor = () => {
     const color = customColor.trim()
     if (!color) return
@@ -196,6 +236,82 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
       primary_colors: [...prev.primary_colors, { color, tag: 'Primary Background' }]
     }))
     setCustomColor('')
+  }
+
+  const handleImportProfile = async (importType) => {
+    const id = importAuditId.trim()
+    if (!id) return
+
+    setImportLoading(true)
+    setImportStatus(null)
+
+    try {
+      const response = await fetch(`http://localhost:3000/audits/${id}/wireframe-profile`)
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || `Audit ${id} not found`)
+      }
+      const data = await response.json()
+
+      if (importType === 'colors') {
+        if (!data.primary_colors || data.primary_colors.length === 0) {
+          setImportStatus({ type: 'error', message: `No color profile found on audit ${id}` })
+          return
+        }
+        setConfig(prev => ({
+          ...prev,
+          primary_colors: data.primary_colors.map(c => ({
+            color: c.color || c['color'],
+            tag: c.tag || c['tag'] || 'Primary Background'
+          }))
+        }))
+        setImportStatus({ type: 'success', message: `Imported ${data.primary_colors.length} colors from audit ${id} (${data.audit_url})` })
+      } else if (importType === 'media') {
+        if (!data.selected_images || data.selected_images.length === 0) {
+          setImportStatus({ type: 'error', message: `No media profile found on audit ${id}` })
+          return
+        }
+        setConfig(prev => ({
+          ...prev,
+          selected_images: data.selected_images.map(img => ({
+            src: img.src || img['src'],
+            label: img.label || img['label'] || '',
+            media_type: img.media_type || img['media_type'] || 'image',
+            manual: img.manual || img['manual'] || false
+          }))
+        }))
+        setImportStatus({ type: 'success', message: `Imported ${data.selected_images.length} media items from audit ${id} (${data.audit_url})` })
+      } else if (importType === 'both') {
+        const updates = {}
+        const msgs = []
+        if (data.primary_colors?.length > 0) {
+          updates.primary_colors = data.primary_colors.map(c => ({
+            color: c.color || c['color'],
+            tag: c.tag || c['tag'] || 'Primary Background'
+          }))
+          msgs.push(`${data.primary_colors.length} colors`)
+        }
+        if (data.selected_images?.length > 0) {
+          updates.selected_images = data.selected_images.map(img => ({
+            src: img.src || img['src'],
+            label: img.label || img['label'] || '',
+            media_type: img.media_type || img['media_type'] || 'image',
+            manual: img.manual || img['manual'] || false
+          }))
+          msgs.push(`${data.selected_images.length} media items`)
+        }
+        if (msgs.length === 0) {
+          setImportStatus({ type: 'error', message: `No color or media profile found on audit ${id}` })
+          return
+        }
+        setConfig(prev => ({ ...prev, ...updates }))
+        setImportStatus({ type: 'success', message: `Imported ${msgs.join(' and ')} from audit ${id} (${data.audit_url})` })
+      }
+    } catch (err) {
+      setImportStatus({ type: 'error', message: err.message })
+    } finally {
+      setImportLoading(false)
+    }
   }
 
   const handleInspirationUrlChange = (index, value) => {
@@ -227,12 +343,14 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
   const handleNext = () => {
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1)
+      setImportStatus(null)
     }
   }
 
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
+      setImportStatus(null)
     }
   }
 
@@ -285,7 +403,7 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
   }
 
   return (
-    <div className="wireframe-modal-overlay" onClick={onClose}>
+    <div className="wireframe-modal-overlay">
       <div className="wireframe-modal" onClick={(e) => e.stopPropagation()}>
         <div className="wireframe-modal-header">
           <h2>Generate Wireframe Variations</h2>
@@ -295,7 +413,7 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
         <div className="wireframe-modal-progress">
           <div className={`progress-step ${currentStep >= 1 ? 'active' : ''}`}>1. Count</div>
           <div className={`progress-step ${currentStep >= 2 ? 'active' : ''}`}>2. Colors</div>
-          <div className={`progress-step ${currentStep >= 3 ? 'active' : ''}`}>3. Images</div>
+          <div className={`progress-step ${currentStep >= 3 ? 'active' : ''}`}>3. Media</div>
           <div className={`progress-step ${currentStep >= 4 ? 'active' : ''}`}>4. Inspiration</div>
           <div className={`progress-step ${currentStep >= 5 ? 'active' : ''}`}>5. Custom</div>
         </div>
@@ -324,6 +442,33 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
           {/* Step 2: Colors */}
           {currentStep === 2 && (
             <div className="wireframe-step">
+              <div className="import-profile-bar">
+                <label className="import-profile-label">Import color profile from another audit</label>
+                <div className="import-profile-row">
+                  <input
+                    type="text"
+                    className="import-profile-input"
+                    placeholder="Audit ID (e.g., 34)"
+                    value={importAuditId}
+                    onChange={(e) => { setImportAuditId(e.target.value); setImportStatus(null) }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleImportProfile('colors')}
+                  />
+                  <button
+                    type="button"
+                    className="import-profile-btn"
+                    onClick={() => handleImportProfile('colors')}
+                    disabled={importLoading || !importAuditId.trim()}
+                  >
+                    {importLoading ? 'Importing...' : 'Import'}
+                  </button>
+                </div>
+                {importStatus && currentStep === 2 && (
+                  <div className={`import-status ${importStatus.type}`}>
+                    {importStatus.type === 'success' ? '✓' : '✗'} {importStatus.message}
+                  </div>
+                )}
+              </div>
+
               <h3>Select Primary Colors</h3>
               <p className="step-description">Choose up to 6 colors from your site (top 10 most used shown)</p>
               
@@ -429,16 +574,97 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
             </div>
           )}
 
-          {/* Step 3: Images */}
+          {/* Step 3: Images & Media */}
           {currentStep === 3 && (
             <div className="wireframe-step">
-              <h3>Select Images (Optional)</h3>
+              <div className="import-profile-bar">
+                <label className="import-profile-label">Import media profile from another audit</label>
+                <div className="import-profile-row">
+                  <input
+                    type="text"
+                    className="import-profile-input"
+                    placeholder="Audit ID (e.g., 34)"
+                    value={importAuditId}
+                    onChange={(e) => { setImportAuditId(e.target.value); setImportStatus(null) }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleImportProfile('media')}
+                  />
+                  <button
+                    type="button"
+                    className="import-profile-btn"
+                    onClick={() => handleImportProfile('media')}
+                    disabled={importLoading || !importAuditId.trim()}
+                  >
+                    {importLoading ? 'Importing...' : 'Import'}
+                  </button>
+                </div>
+                {importStatus && currentStep === 3 && (
+                  <div className={`import-status ${importStatus.type}`}>
+                    {importStatus.type === 'success' ? '✓' : '✗'} {importStatus.message}
+                  </div>
+                )}
+              </div>
+
+              <h3>Select Images &amp; Media (Optional)</h3>
               <p className="step-description">
-                Choose which images to include in the wireframe. All images are included by default.
+                Choose which images to include in the wireframe, or manually add images/videos by URL.
               </p>
+
+              {/* Manual Media Input */}
+              <div className="manual-media-section">
+                <h4>Add Media Manually</h4>
+                <p className="section-note">Paste URLs for images or videos that weren't picked up by the crawler (e.g., from HTML attributes, background styles, or external sources). You can paste multiple URLs, one per line.</p>
+                <div className="manual-media-form">
+                  <div className="manual-media-type-row">
+                    <select
+                      className="manual-media-type-select"
+                      value={manualMediaType}
+                      onChange={(e) => setManualMediaType(e.target.value)}
+                    >
+                      <option value="image">Image</option>
+                      <option value="video">Video</option>
+                      <option value="gif">GIF / Animation</option>
+                      <option value="icon">Icon / SVG</option>
+                      <option value="logo">Logo</option>
+                    </select>
+                    <input
+                      type="text"
+                      className="manual-media-label-input"
+                      placeholder="Label (e.g., Hero Banner, Product Video)"
+                      value={manualMediaLabel}
+                      onChange={(e) => setManualMediaLabel(e.target.value)}
+                    />
+                  </div>
+                  <div className="manual-media-url-row">
+                    <textarea
+                      className="manual-media-url-input"
+                      placeholder="Paste image/video URL(s) here — one per line&#10;e.g., https://example.com/hero.jpg"
+                      value={manualMediaUrl}
+                      onChange={(e) => setManualMediaUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey && !manualMediaUrl.includes('\n')) {
+                          e.preventDefault()
+                          handleAddManualMedia()
+                        }
+                      }}
+                      rows={2}
+                    />
+                    <button
+                      type="button"
+                      className="manual-media-add-btn"
+                      onClick={handleAddManualMedia}
+                      disabled={!manualMediaUrl.trim()}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
+              </div>
               
-              {availableImages.length > 0 ? (
+              {availableImages.length > 0 && (
                 <>
+                  <div className="crawled-images-divider">
+                    <span>Crawled Images</span>
+                  </div>
                   <div className="image-selection-controls">
                     <button
                       type="button"
@@ -452,7 +678,7 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
                     <span className="image-count">
                       {config.selected_images.length === 0 
                         ? `All ${availableImages.length} images included` 
-                        : `${config.selected_images.length} of ${availableImages.length} images selected`}
+                        : `${config.selected_images.filter(img => !img.manual).length} of ${availableImages.length} crawled images selected`}
                     </span>
                   </div>
                   
@@ -498,70 +724,100 @@ function WireframeConfigModal({ isOpen, onClose, auditId, pageData, audit, onGen
                       )
                     })}
                   </div>
-                  
-                  {/* Image Labels Section */}
-                  {config.selected_images.length > 0 && (
-                    <div className="selected-images-section">
-                      <h4>Image Labels (Optional):</h4>
-                      <p className="section-note">Add descriptive labels to help the AI use images appropriately (e.g., "Hero Image", "Product Photo", "Team Photo")</p>
-                      <div className="selected-images-list">
-                        {config.selected_images.map((imageObj, idx) => (
-                          <div key={idx} className="selected-image-row">
-                            <img
-                              src={imageObj.src}
-                              alt={`Selected ${idx + 1}`}
-                              className="selected-image-thumb"
-                              onError={(e) => {
-                                e.target.style.display = 'none'
-                              }}
-                            />
-                            <input
-                              type="text"
-                              className="image-label-input"
-                              placeholder="Optional label (e.g., Hero Image)"
-                              value={imageObj.label || ''}
-                              onChange={(e) => handleImageLabelChange(imageObj.src, e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <button
-                              className="remove-image-btn"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleImageToggle(imageObj.src)
-                              }}
-                              title="Remove"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      <div className="save-default-checkbox">
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={config.save_as_default_images}
-                            onChange={(e) => setConfig(prev => ({ 
-                              ...prev, 
-                              save_as_default_images: e.target.checked 
-                            }))}
-                          />
-                          <span>Save as default image selection</span>
-                        </label>
-                        <p className="checkbox-description">
-                          Save this image selection for future wireframe generations
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="image-note">
-                    💡 Tip: By default, all images are included. Deselect images you don't want in the wireframe.
-                  </div>
                 </>
-              ) : (
-                <div className="no-images">No images available from page data</div>
+              )}
+                  
+              {/* Selected Media Labels Section */}
+              {config.selected_images.length > 0 && (
+                <div className="selected-images-section">
+                  <h4>Selected Media &amp; Labels:</h4>
+                  <p className="section-note">Add descriptive labels to help the AI use media appropriately (e.g., "Hero Image", "Product Photo", "Explainer Video")</p>
+                  <div className="selected-images-list">
+                    {config.selected_images.map((imageObj, idx) => (
+                      <div key={idx} className={`selected-image-row ${imageObj.manual ? 'manual-media-row' : ''}`}>
+                        {imageObj.media_type === 'video' ? (
+                          <div className="selected-media-icon video-icon">
+                            <Icon name="play" size={24} color="#8b5cf6" />
+                          </div>
+                        ) : (
+                          <img
+                            src={imageObj.src}
+                            alt={`Selected ${idx + 1}`}
+                            className="selected-image-thumb"
+                            onError={(e) => {
+                              e.target.style.display = 'none'
+                              if (e.target.nextSibling?.classList?.contains('selected-media-icon-fallback')) {
+                                e.target.nextSibling.style.display = 'flex'
+                              }
+                            }}
+                          />
+                        )}
+                        {imageObj.media_type !== 'video' && (
+                          <div className="selected-media-icon-fallback" style={{ display: 'none' }}>
+                            <Icon name="image" size={24} color="#6b7280" />
+                          </div>
+                        )}
+                        <div className="selected-image-details">
+                          <div className="selected-image-meta">
+                            {imageObj.manual && (
+                              <span className={`media-type-badge ${imageObj.media_type || 'image'}`}>
+                                {(imageObj.media_type || 'image').toUpperCase()}
+                              </span>
+                            )}
+                            <span className="selected-image-url" title={imageObj.src}>
+                              {imageObj.src.length > 60 ? imageObj.src.substring(0, 60) + '...' : imageObj.src}
+                            </span>
+                          </div>
+                          <input
+                            type="text"
+                            className="image-label-input"
+                            placeholder="Optional label (e.g., Hero Image)"
+                            value={imageObj.label || ''}
+                            onChange={(e) => handleImageLabelChange(imageObj.src, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                        <button
+                          className="remove-image-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (imageObj.manual) {
+                              handleRemoveManualMedia(imageObj.src)
+                            } else {
+                              handleImageToggle(imageObj.src)
+                            }
+                          }}
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="save-default-checkbox">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={config.save_as_default_images}
+                        onChange={(e) => setConfig(prev => ({ 
+                          ...prev, 
+                          save_as_default_images: e.target.checked 
+                        }))}
+                      />
+                      <span>Save as default image selection</span>
+                    </label>
+                    <p className="checkbox-description">
+                      Save this image selection for future wireframe generations
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {availableImages.length > 0 && (
+                <div className="image-note">
+                  💡 Tip: By default, all crawled images are included. Deselect images you don't want in the wireframe, or add missing ones manually above.
+                </div>
               )}
             </div>
           )}

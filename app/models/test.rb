@@ -6,6 +6,9 @@ class Test < ApplicationRecord
   DATA_SOURCES = %w[
     page_content
     page_html
+    head_html
+    nav_html
+    body_html
 
     headings
     asset_urls

@@ -7,6 +7,8 @@ Rails.application.routes.draw do
     member do
       get :status
       get "pages/:page_id", to: "audits#page_details", as: :page_details
+      post "export-slides", to: "audits#export_slides"
+      get "wireframe-profile", to: "audits#wireframe_profile"
     end
     resources :wireframes, only: [ :index, :create ] do
       collection do

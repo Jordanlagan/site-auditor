@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import './WireframeStreamingModal.css'
 import Icon from './components/Icon'
+import HexLoader from './components/HexLoader'
 
 function WireframeStreamingModal({ isOpen, onClose, auditId, config, regenerateWireframeId, sectionSelector }) {
   const [phase, setPhase] = useState('connecting')
@@ -266,12 +267,10 @@ function WireframeStreamingModal({ isOpen, onClose, auditId, config, regenerateW
 
         <div className="streaming-modal-status">
           <div className={`status-indicator status-${phase}`}>
-            {phase === 'extracting' && <Icon name="search" size={32} />}
-            {phase === 'generating' && <Icon name="sparkles" size={32} />}
+            {(phase === 'extracting' || phase === 'generating' || phase === 'connecting') && <HexLoader size={48} />}
             {phase === 'saving' && <Icon name="save" size={32} />}
             {phase === 'complete' && <Icon name="checkCircle" size={32} />}
             {phase === 'error' && <Icon name="alertCircle" size={32} />}
-            {phase === 'connecting' && <Icon name="plug" size={32} />}
           </div>
           <div className="status-message">{message}</div>
           {error && <div className="status-error">{error}</div>}
@@ -289,7 +288,7 @@ function WireframeStreamingModal({ isOpen, onClose, auditId, config, regenerateW
             {!htmlContent && (
               <div className="preview-placeholder">
                 <div className="preview-placeholder-icon">
-                  <Icon name="palette" size={64} color="#6b7280" />
+                  <HexLoader size={160} />
                 </div>
                 <div className="preview-placeholder-text">
                   Wireframe will appear here as it generates...

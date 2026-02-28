@@ -80,10 +80,17 @@ module Tests
       case source
       # Core content sources
       when "page_content"
-        page_data.page_content&.first(5000)
-      when "page_html", "html_content" # Support both names
-        # Smart HTML trimming - remove inline scripts/styles but keep structure
+        truncate_at_word_boundary(page_data.page_content, 5000)
+      when "page_html", "html_content" # Support both names — legacy, returns truncated full page
         trim_html_intelligently(page_data.html_content, max_length: 50000)
+
+      # Split HTML data sources for targeted analysis
+      when "head_html"
+        extract_head_html(page_data.html_content)
+      when "nav_html"
+        extract_nav_html(page_data.html_content)
+      when "body_html"
+        extract_body_html(page_data.html_content)
 
       # Structure sources
       when "headings"
@@ -127,8 +134,8 @@ module Tests
       when "colors"
         page_data.colors&.first(15)
       when "screenshots"
-        # Note: Screenshots available but Claude vision API needed for analysis
-        page_data.screenshots
+        # Return screenshot file paths for Claude Vision API analysis
+        collect_screenshot_paths
 
       # Performance sources
       when "performance_data", "performance_metrics" # Support both names
@@ -162,18 +169,34 @@ module Tests
       model = ai_config["model"] || ai_config[:model] || "claude-opus-4-6"
       temperature = (ai_config["temperature"] || ai_config[:temperature] || 0.3).to_f
 
-      # Compact AI request logging
-      Rails.logger.info "  AI Request: #{model} (temp: #{temperature})"
+      # Check if this test uses screenshots — route to Vision API
+      screenshot_paths = data_context[:screenshots]
+      use_vision = screenshot_paths.is_a?(Array) && screenshot_paths.any?
 
-      response = OpenaiService.chat(
-        messages: [
-          { role: "system", content: system_prompt },
-          { role: "user", content: full_prompt }
-        ],
-        model: model,
-        temperature: temperature,
-        max_tokens: 2000
-      )
+      # Compact AI request logging
+      Rails.logger.info "  AI Request: #{model} (temp: #{temperature})#{use_vision ? " [VISION: #{screenshot_paths.length} images]" : ""}"
+
+      messages = [
+        { role: "system", content: system_prompt },
+        { role: "user", content: full_prompt }
+      ]
+
+      response = if use_vision
+        OpenaiService.chat_with_images(
+          messages: messages,
+          image_paths: screenshot_paths,
+          model: model,
+          temperature: temperature,
+          max_tokens: 2000
+        )
+      else
+        OpenaiService.chat(
+          messages: messages,
+          model: model,
+          temperature: temperature,
+          max_tokens: 2000
+        )
+      end
 
       return create_result(
         status: :not_applicable,
@@ -189,10 +212,14 @@ module Tests
         parsed = JSON.parse(json_text)
 
         Rails.logger.info "  Result: #{parsed['status']} - #{parsed['summary']}"
+        if parsed['details'].is_a?(Array)
+          Rails.logger.info "  Details: #{parsed['details'].length} findings"
+        end
 
         create_result(
           status: parsed["status"],
           summary: parsed["summary"],
+          details: parsed["details"],
           ai_prompt: full_prompt,
           data_context: data_context,
           ai_response: response
@@ -227,15 +254,22 @@ module Tests
         You must respond with a valid JSON object with the following structure:
         {
           "status": "passed" | "failed" | "not_applicable",
-          "summary": "Brief one-sentence summary of the finding"
+          "summary": "Brief one-sentence summary of the overall finding",
+          "details": []
         }
 
         IMPORTANT:
         - Set status to "not_applicable" if this test doesn't apply to this website type
         - Set status to "passed" if the test criteria are met
         - Set status to "failed" if test criteria not met or critical issues are found
-        - Be objective and specific in your analysis
         - Only respond with the JSON object, no other text
+
+        STRICT RULES FOR "details":
+        - If status is "passed" or "not_applicable", details MUST be an empty array []. Do NOT list positive observations.
+        - If status is "failed", details should list ONLY the specific issues found — nothing else.
+        - One issue = one detail. Do NOT combine or inflate. If there's 1 problem, return 1 detail.
+        - Every detail MUST be a concrete, verifiable issue you can point to in the data — not a general impression or opinion.
+        - Do NOT include anything outside the scope of the TEST INSTRUCTIONS above.
       PROMPT
     end
 
@@ -244,6 +278,14 @@ module Tests
 
       data_context.each do |key, value|
         next if value.nil? || (value.respond_to?(:empty?) && value.empty?)
+
+        # Screenshots are sent as images via the Vision API, not as text
+        if key.to_s == "screenshots"
+          count = value.is_a?(Array) ? value.length : 0
+          formatted << "Screenshots: #{count} screenshot image(s) attached above for visual analysis"
+          formatted << ""
+          next
+        end
 
         formatted << "#{key.to_s.humanize}:"
         formatted << format_value(value)
@@ -256,10 +298,9 @@ module Tests
     def format_value(value)
       case value
       when String
-        # For HTML content, allow much more (25K) to capture actual page content
-        # For other strings, keep reasonable limit (2K)
-        max_length = value.include?("<html") || value.include?("<!DOCTYPE") ? 25000 : 2000
-        value.length > max_length ? "#{value.first(max_length)}..." : value
+        # HTML and pre-truncated content passes through as-is
+        # Data sources already handle their own size limits
+        value
       when Array
         value.first(10).to_json
       when Hash
@@ -291,15 +332,16 @@ module Tests
         Current date: #{current_date}
 
         IMPORTANT TEST EVALUATION GUIDELINES:
-        - Only mark tests as "failed" for significant issues that materially impact the user experience, conversion rates, or functionality
-        - For subjective quality tests (like typos, grammar, design), use your judgment - minor imperfections should still pass unless they're particularly egregious or numerous
-        - Reserve "failed" status for clear, objective failures or when the test asks for strict equivalency (e.g., "Does the page have an announcement bar?" requires a yes/no answer)
-        - When in doubt between "passed" and "failed", lean toward "passed" if the issue is minor or debatable
-        - Focus on actionable problems that genuinely need fixing, not nitpicking
+        - Be a critical, objective auditor. Base every judgment on verifiable evidence from the provided data.
+        - ONLY evaluate what the specific test instructions ask for. Do not expand scope or cross into other audit areas.
+        - Mark "failed" when there are concrete, demonstrable issues — things you can point to in the HTML or screenshots.
+        - Mark "passed" only when the specific criteria in the test instructions are genuinely met based on evidence.
+        - Do NOT pad findings. If only 1-2 things are relevant, report only those.
+        - Every claim must be backed by something observable in the data. No assumptions, no extrapolation.
       PROMPT
     end
 
-    def create_result(status:, summary: nil, ai_prompt: nil, data_context: nil, ai_response: nil)
+    def create_result(status:, summary: nil, details: nil, ai_prompt: nil, data_context: nil, ai_response: nil)
       TestResult.create!(
         discovered_page: discovered_page,
         audit: audit,
@@ -307,46 +349,300 @@ module Tests
         test_category: test.test_group.name.downcase.gsub(/\s+/, "_"),
         status: status,
         summary: summary,
+        details: details,
         ai_prompt: ai_prompt,
         data_context: data_context,
         ai_response: ai_response
       )
     end
 
-    def trim_html_intelligently(html, max_length: 50000)
-      return nil if html.nil?
-      return html if html.length <= max_length
+    # Collect screenshot file paths from both page_data.screenshots and page_screenshots records
+    def collect_screenshot_paths
+      paths = []
 
-      # Parse HTML and remove verbose inline content
+      # From page_data.screenshots (JSONB hash like { desktop: "/screenshots/...", mobile: "/screenshots/..." })
+      if page_data&.screenshots.is_a?(Hash)
+        page_data.screenshots.each_value do |path|
+          paths << path if path.present? && screenshot_file_exists?(path)
+        end
+      end
+
+      # From page_screenshots records (separate model with screenshot_url)
+      discovered_page.page_screenshots.each do |ps|
+        if ps.screenshot_url.present? && screenshot_file_exists?(ps.screenshot_url) && !paths.include?(ps.screenshot_url)
+          paths << ps.screenshot_url
+        end
+      end
+
+      if paths.empty?
+        Rails.logger.warn "  No screenshot files found for page #{discovered_page.id}"
+        return nil
+      end
+
+      Rails.logger.info "  Found #{paths.length} screenshot(s): #{paths.join(', ')}"
+      paths
+    end
+
+    def screenshot_file_exists?(relative_path)
+      filepath = Rails.root.join("public", relative_path.sub(%r{^/}, ""))
+      File.exist?(filepath)
+    end
+
+    # ── Truncation helpers ────────────────────────────────────────────────
+
+    def truncate_at_word_boundary(text, max_length)
+      return nil if text.nil?
+      return text if text.length <= max_length
+
+      # Cut at max_length then backtrack to the last space
+      truncated = text[0...max_length]
+      last_space = truncated.rindex(/\s/)
+      truncated = truncated[0...last_space] if last_space && last_space > max_length * 0.8
+      truncated << "\n[content truncated at #{max_length} chars]"
+    end
+
+    # ── Shared attribute stripping ────────────────────────────────────────────
+
+    NOISY_ATTRIBUTES = %w[
+      srcset sizes loading decoding fetchpriority
+      onclick onload onerror onmouseover onmouseout onfocus onblur onchange onsubmit
+      onkeydown onkeyup onkeypress ontouchstart ontouchmove ontouchend
+      tabindex draggable contenteditable spellcheck autocomplete autocapitalize
+      translate inputmode enterkeyhint
+    ].freeze
+
+    def strip_noisy_attributes!(root)
+      root.traverse do |node|
+        next unless node.element?
+        attrs_to_remove = []
+        node.attributes.each do |name, attr|
+          # Remove ALL data-* attributes (data-swiper-slide-index, data-testid, etc.)
+          if name.start_with?("data-")
+            attrs_to_remove << name
+            next
+          end
+          # Remove known noisy attributes
+          if NOISY_ATTRIBUTES.include?(name)
+            attrs_to_remove << name
+            next
+          end
+          # Remove any attribute with a very long value (base64 images, inline JSON, etc.)
+          if attr.value && attr.value.length > 200
+            attrs_to_remove << name
+          end
+        end
+        attrs_to_remove.each { |a| node.remove_attribute(a) }
+      end
+    end
+
+    # ── Split HTML data sources ──────────────────────────────────────────────
+
+    def extract_head_html(html)
+      return nil if html.nil?
+      doc = Nokogiri::HTML(html)
+      head = doc.at_css("head")
+      return nil unless head
+
+      # Remove all scripts and inline styles from head
+      head.css("script", "style", "noscript").each(&:remove)
+      head.css('link[rel="preload"], link[rel="prefetch"], link[rel="dns-prefetch"], link[rel="preconnect"]').each(&:remove)
+      strip_noisy_attributes!(head)
+
+      result = head.inner_html.squeeze(" \n").strip
+      Rails.logger.info "  head_html: #{result.length} chars"
+      result.first(10000) # Head should never need more than 10K
+    rescue => e
+      Rails.logger.warn "Failed to extract head HTML: #{e.message}"
+      nil
+    end
+
+    def extract_nav_html(html)
+      return nil if html.nil?
       doc = Nokogiri::HTML(html)
 
-      # Remove inline scripts (but keep src references)
-      doc.css("script").each do |script|
-        if script["src"].nil? && script.text.length > 100
-          script.content = "/* inline script removed */"
+      # Find nav elements: <nav>, <header>, or elements with role="navigation"
+      nav_elements = doc.css("nav, header, [role='navigation']")
+      return nil if nav_elements.empty?
+
+      # Clean each nav element
+      nav_elements.each do |nav_el|
+        nav_el.css("script, style, noscript, svg").each(&:remove)
+        nav_el.css("[style]").each { |el| el.remove_attribute("style") }
+        strip_noisy_attributes!(nav_el)
+        # Strip class attributes to essentials
+        nav_el.css("[class]").each do |el|
+          classes = el["class"].split
+          el["class"] = classes.first(2).join(" ") if classes.length > 2
         end
       end
 
-      # Remove inline styles (but keep external references)
-      doc.css("style").each do |style|
-        if style.text.length > 100
-          style.content = "/* inline styles removed */"
+      result = nav_elements.map(&:to_html).join("\n")
+      Rails.logger.info "  nav_html: #{result.length} chars (#{nav_elements.length} elements)"
+      result.first(15000) # Nav should never need more than 15K
+    rescue => e
+      Rails.logger.warn "Failed to extract nav HTML: #{e.message}"
+      nil
+    end
+
+    def extract_body_html(html)
+      return nil if html.nil?
+      doc = Nokogiri::HTML(html)
+      body = doc.at_css("body")
+      return nil unless body
+
+      # Remove nav/header elements entirely (they have their own data source)
+      body.css("nav, header, [role='navigation']").each(&:remove)
+
+      # Remove all scripts, styles, noscript, large SVGs
+      body.css("script", "noscript", "style").each(&:remove)
+      body.css("svg").each { |svg| svg.remove if svg.to_html.length > 500 }
+
+      # Remove hidden elements
+      body.css("[aria-hidden='true'], [hidden], .visually-hidden, .sr-only").each do |el|
+        el.remove if el.to_html.length > 200
+      end
+
+      # Strip noise attributes
+      body.css("[style]").each { |el| el.remove_attribute("style") }
+      strip_noisy_attributes!(body)
+      body.css("[class]").each do |el|
+        classes = el["class"].split
+        el["class"] = classes.first(3).join(" ") if classes.length > 3
+      end
+
+      # Collapse whitespace
+      body.traverse do |node|
+        if node.text? && node.content.strip.empty? && node.content.length > 1
+          node.content = " "
         end
       end
 
-      # Get the cleaned HTML
+      result = body.inner_html.squeeze("\n").strip
+      Rails.logger.info "  body_html (no nav): #{result.length} chars"
+      result.first(80000) # Body gets the lion's share
+    rescue => e
+      Rails.logger.warn "Failed to extract body HTML: #{e.message}"
+      nil
+    end
+
+    def trim_html_intelligently(html, max_length: 50000)
+      return nil if html.nil?
+
+      doc = Nokogiri::HTML(html)
+
+      # ── Clean <head>: keep only essential meta/link tags ──────────────────
+      head = doc.at_css("head")
+      if head
+        # Remove ALL inline scripts and styles from head entirely
+        head.css("script", "style", "noscript").each(&:remove)
+
+        # Remove JSON-LD, preload/prefetch hints, and other bloat
+        head.css('link[rel="preload"], link[rel="prefetch"], link[rel="dns-prefetch"], link[rel="preconnect"]').each(&:remove)
+      end
+
+      # ── Clean <body>: strip inline JS/CSS content, keep structure ────────
+      body = doc.at_css("body")
+      if body
+        # Remove all script tags entirely (we have asset_urls data source for those)
+        body.css("script", "noscript").each(&:remove)
+
+        # Remove inline style tags but keep external stylesheet links
+        body.css("style").each(&:remove)
+
+        # Remove SVG sprites / hidden SVG blocks (often huge)
+        body.css("svg").each do |svg|
+          svg.remove if svg.to_html.length > 2000
+        end
+
+        # ── Collapse mega-navs: keep top-level links, remove nested dropdowns ──
+        # Shopify mega-navs can be 30K+ chars of nested <li> items
+        body.css("nav, header, [role='navigation']").each do |nav_el|
+          # Find deeply nested lists (3+ levels deep) and replace with a summary
+          nav_el.css("ul ul, ol ol").each do |nested_list|
+            link_count = nested_list.css("a").length
+            if link_count > 3
+              placeholder = doc.create_element("li")
+              placeholder.content = "<!-- #{link_count} dropdown links collapsed -->"
+              nested_list.replace(placeholder)
+            end
+          end
+        end
+
+        # ── Remove hidden elements (display:none, aria-hidden, etc.) ──────
+        body.css("[aria-hidden='true'], [hidden], .visually-hidden, .sr-only").each do |el|
+          el.remove if el.to_html.length > 500
+        end
+
+        # Strip style attributes to reduce noise (layout info is in screenshots)
+        body.css("[style]").each { |el| el.remove_attribute("style") }
+
+        # Strip all noisy/non-semantic attributes (data-*, srcset, event handlers, etc.)
+        strip_noisy_attributes!(body)
+
+        # Strip verbose class attributes (keep first 3 classes max)
+        body.css("[class]").each do |el|
+          classes = el["class"].split
+          el["class"] = classes.first(3).join(" ") if classes.length > 3
+        end
+
+        # Remove excessive whitespace between tags
+        body.traverse do |node|
+          if node.text? && node.content.strip.empty? && node.content.length > 1
+            node.content = " "
+          end
+        end
+
+        # Flatten deeply nested elements: anything more than 4 levels deep from <body> gets unwrapped
+        # (keeps text content but removes the wrapper tags)
+        # Collect first, then modify — avoids mutating tree during traversal
+        deep_nodes = []
+        body.traverse do |node|
+          next unless node.element?
+          next if node == body
+          depth = 0
+          ancestor = node.parent
+          while ancestor && ancestor.element? && ancestor != body
+            depth += 1
+            ancestor = ancestor.parent
+          end
+          deep_nodes << node if depth > 4
+        end
+        deep_nodes.reverse_each do |node|
+          node.replace(Nokogiri::HTML::DocumentFragment.parse(node.inner_html))
+        end
+      end
+
       cleaned_html = doc.to_html
 
-      # If still too long, truncate with indication
+      # Log the compression ratio
+      Rails.logger.info "  HTML cleaned: #{html.length} → #{cleaned_html.length} chars (#{((1 - cleaned_html.length.to_f / html.length) * 100).round(1)}% reduction)"
+
+      # Hard cap to stay within Claude's 200K token limit (~4 chars/token, leave room for system prompt + other data)
       if cleaned_html.length > max_length
-        "#{cleaned_html.first(max_length)}\n<!-- HTML truncated at #{max_length} characters -->"
-      else
-        cleaned_html
+        # Prioritize <body> content over <head> by extracting body and truncating from the end
+        body_match = cleaned_html.match(/<body[^>]*>(.*)<\/body>/mi)
+        head_match = cleaned_html.match(/<head[^>]*>(.*)<\/head>/mi)
+        
+        if body_match && head_match
+          head_budget = [head_match[1].length, 5000].min  # Cap <head> at 5K
+          body_budget = max_length - head_budget - 500     # Rest for <body>
+          head_html = head_match[1].first(head_budget)
+          body_html = body_match[1].first(body_budget)
+          cleaned_html = "<html><head>#{head_html}</head><body>#{body_html}\n<!-- HTML truncated at #{max_length} chars --></body></html>"
+        else
+          cleaned_html = "#{cleaned_html.first(max_length)}\n<!-- HTML truncated at #{max_length} chars -->"
+        end
+        Rails.logger.info "  HTML capped to #{cleaned_html.length} chars (max: #{max_length})"
       end
+
+      cleaned_html
     rescue => e
       Rails.logger.warn "Failed to trim HTML intelligently: #{e.message}"
-      # Fallback to simple truncation
-      html.first(max_length)
+      # Fallback: just strip script/style tags with regex
+      fallback = html.gsub(/<script[^>]*>.*?<\/script>/mi, "")
+                      .gsub(/<style[^>]*>.*?<\/style>/mi, "")
+      Rails.logger.info "  Fallback HTML cleaning: #{html.length} → #{fallback.length} chars"
+      fallback
     end
   end
 end

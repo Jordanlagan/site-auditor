@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_02_10_000001) do
+ActiveRecord::Schema[7.2].define(version: 2026_02_23_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -64,6 +64,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_02_10_000001) do
     t.string "audit_mode", default: "single_page"
     t.jsonb "ai_config", default: {}
     t.integer "test_ids", default: [], array: true
+    t.text "ai_summary"
     t.index ["created_at"], name: "index_audits_on_created_at"
     t.index ["status"], name: "index_audits_on_status"
     t.index ["url"], name: "index_audits_on_url"
@@ -149,6 +150,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_02_10_000001) do
     t.text "ai_prompt"
     t.jsonb "data_context", default: {}
     t.text "ai_response"
+    t.jsonb "details", default: []
     t.index ["audit_id", "status"], name: "index_test_results_on_audit_id_and_status"
     t.index ["audit_id", "test_category"], name: "index_test_results_on_audit_id_and_test_category"
     t.index ["audit_id"], name: "index_test_results_on_audit_id"

@@ -8,6 +8,7 @@ import './test-selection.css'
 import './lightbox.css'
 import WireframeConfigModal from './WireframeConfigModal'
 import WireframeStreamingModal from './WireframeStreamingModal'
+import GoogleSlidesExportModal from './GoogleSlidesExportModal'
 
 function App() {
   const { id: auditIdParam } = useParams()
@@ -46,6 +47,7 @@ function App() {
   const [regenerateSelector, setRegenerateSelector] = useState('')
   const [showRegenerateStreaming, setShowRegenerateStreaming] = useState(false)
   const [designBriefWireframe, setDesignBriefWireframe] = useState(null)
+  const [showSlidesExport, setShowSlidesExport] = useState(false)
 
   console.log(currentAudit)
 
@@ -54,6 +56,9 @@ function App() {
     const icons = {
       'page_content': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 2v8h8V4H4zm2 2h4v1H6V6zm0 2h4v1H6V8z"/></svg>',
       'page_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3L2 8l3 5v-2L3 8l2-3V3zm6 0v2l2 3-2 3v2l3-5-3-5z"/></svg>',
+      'head_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v4H3V2zm1 1v2h8V3H4zm-1 5h10v1H3V8zm0 2h7v1H3v-1z"/></svg>',
+      'nav_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 4h12v1H2V4zm0 3h12v1H2V7zm0 3h12v1H2v-1z"/></svg>',
+      'body_html': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1zm1 4v7h8V6H4z"/></svg>',
       'headings': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3h2v4h4V3h2v10h-2V9H5v4H3V3z"/></svg>',
       'asset_urls': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h5v2H4v8h3v2H2V3zm7 0h5v12h-5v-2h3V5h-3V3z"/><rect x="6" y="7" width="4" height="2"/></svg>',
       'performance_data': '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2a6 6 0 106 6h-2a4 4 0 11-4-4V2zm1 3v3h3a4 4 0 00-3-3z"/></svg>',
@@ -68,6 +73,9 @@ function App() {
   const sourceLabels = {
     'page_content': 'Page Content',
     'page_html': 'Page HTML',
+    'head_html': 'Head HTML',
+    'nav_html': 'Nav HTML',
+    'body_html': 'Body HTML',
     'headings': 'Headings',
     'asset_urls': 'Asset URLs',
     'performance_data': 'Performance Data',
@@ -375,6 +383,22 @@ function App() {
     window.open(`${API_BASE}${wireframeUrl}`, '_blank')
   }
 
+  const handleSlidesExport = async ({ prompt }) => {
+    const response = await fetch(`${API_BASE}/audits/${currentAudit.id}/export-slides`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Export failed')
+    }
+
+    const result = await response.json()
+    return result.content
+  }
+
   useEffect(() => {
     if (currentAudit?.id) {
       loadWireframes(currentAudit.id)
@@ -660,6 +684,15 @@ function App() {
                   <div className="pass-rate-display" style={{ color: getPassRateColor(currentAudit.pass_rate) }}>
                     <div className="pass-rate-text">{currentAudit.passed_tests}/{currentAudit.total_tests} tests passed</div>
                   </div>
+                  {currentAudit.test_results && currentAudit.test_results.some(t => t.status === 'failed') && (
+                    <button 
+                      className="export-slides-btn"
+                      onClick={() => setShowSlidesExport(true)}
+                      title="Export failed tests to Google Slides"
+                    >
+                      Export to Slides
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -703,6 +736,15 @@ function App() {
                         {expandedTests[test.id] && (
                           <div className="test-details-expanded">
                             <div className="test-summary">{test.summary}</div>
+                            {test.details && test.details.length > 0 && (
+                              <ul className="test-details-list">
+                                {test.details.map((detail, idx) => (
+                                  <li key={idx} className="test-detail-item">
+                                    {typeof detail === 'string' ? detail : detail?.issue || detail?.message || JSON.stringify(detail)}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                             {test.data_sources && test.data_sources.length > 0 && (
                               <div className="data-sources">
                                 <span className="data-sources-label">Data Sources:</span>
@@ -1112,6 +1154,16 @@ function App() {
           config={{ custom_prompt: regeneratePrompt, css_selector: regenerateSelector }}
           sectionSelector={regenerateSelector}
           regenerateWireframeId={regenerateTarget.wireframeId}
+        />
+      )}
+      {/* Google Slides Export Modal */}
+      {showSlidesExport && currentAudit && (
+        <GoogleSlidesExportModal
+          isOpen={showSlidesExport}
+          onClose={() => setShowSlidesExport(false)}
+          failedTests={currentAudit.test_results?.filter(t => t.status === 'failed') || []}
+          auditUrl={currentAudit.url}
+          onExport={handleSlidesExport}
         />
       )}
     </div>

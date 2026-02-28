@@ -225,10 +225,12 @@ class WireframeGenerator
   end
 
   def extract_images(page_data)
-    return [] unless page_data.images.present?
-
-    all_images = page_data.images
-      .select { |img| img["src"].present? && !img["src"].include?("data:image") }
+    all_images = if page_data.images.present?
+      page_data.images
+        .select { |img| img["src"].present? && !img["src"].include?("data:image") }
+    else
+      []
+    end
 
     # Filter by selected images if provided, otherwise use all (default)
     selected_images_data = config[:selected_images] || []
@@ -237,20 +239,41 @@ class WireframeGenerator
       # No selection made - use all images (default behavior)
       all_images.map { |img| img["src"] }
     else
-      # Filter to only selected images and apply their labels
-      # selected_images_data format: [{ src: 'url', label: 'Hero Image' }, ...]
+      # Build result from selected images, preserving labels and media types.
+      # Start with crawled images that were explicitly selected.
       selected_srcs = selected_images_data.map { |img| img[:src] || img["src"] }
-      all_images
+      matched = all_images
         .select { |img| selected_srcs.include?(img["src"]) }
         .map do |img|
-          # Find label if provided
           selected = selected_images_data.find { |s| (s[:src] || s["src"]) == img["src"] }
-          label = selected&.dig(:label) || selected&.dig("label")
-          label.present? ? "#{img['src']} (#{label})" : img["src"]
+          format_image_entry(img["src"], selected)
         end
+
+      # Append manually-added media that don't exist in page_data
+      crawled_srcs = all_images.map { |img| img["src"] }
+      manual = selected_images_data
+        .select { |s| (s[:manual] || s["manual"]) && !crawled_srcs.include?(s[:src] || s["src"]) }
+        .map { |s| format_image_entry(s[:src] || s["src"], s) }
+
+      matched + manual
     end
     
     result
+  end
+
+  # Format a single image/media entry for the prompt with label and media type
+  def format_image_entry(src, selected_data)
+    return src unless selected_data
+
+    parts = [src]
+    media_type = selected_data[:media_type] || selected_data["media_type"]
+    label = selected_data[:label] || selected_data["label"]
+
+    annotations = []
+    annotations << "type: #{media_type}" if media_type.present? && media_type != "image"
+    annotations << label if label.present?
+
+    annotations.any? ? "#{src} (#{annotations.join(' — ')})" : src
   end
 
   def build_design_transfer_prompt(design_system, inspiration_data)
@@ -514,8 +537,8 @@ class WireframeGenerator
       TEXT CONTENT TO USE:
       #{text_content[0..5000]}
 
-      IMAGES AVAILABLE:
-      #{design_system[:images].first(10).join("\n")}
+      IMAGES & MEDIA AVAILABLE (entries marked "type: video" should use <video> tags; all others use <img>):
+      #{design_system[:images].join("\n")}
 
       SECTION PATTERN:
       #{section_pattern ? JSON.generate(section_pattern) : "Create appropriate #{section_type} layout"}
@@ -564,6 +587,8 @@ class WireframeGenerator
     
     font_pairing_strategy = design_patterns['font_pairing_strategy'] || design_patterns[:font_pairing_strategy] ||
       "Create clear hierarchy using font weight and size variations."
+
+    today_date = Date.today.strftime("%B %d, %Y")
     
     # Log if fallbacks were used (helps identify if Phase 1 needs updating)
     if design_patterns['design_philosophy'].nil? && design_patterns[:design_philosophy].nil?
@@ -611,7 +636,7 @@ class WireframeGenerator
       FONTS (use these):
       #{format_fonts(design_system[:fonts])}
 
-      IMAGES (use these):
+      IMAGES & MEDIA (use ALL of these — entries marked "type: video" should use <video> tags; all others use <img>):
       #{design_system[:images].join("\n")}
 
       TEXT CONTENT (use this text in your wireframe):
@@ -654,10 +679,14 @@ class WireframeGenerator
          - Ensure WCAG AA contrast ratios between text and background colors.
          - Use the CSS variables throughout all styles. Never use raw hex codes in component styles.
 
-      5. CONTENT:
+      5. CONTENT & MEDIA:
          - Extract ALL text content from the original HTML (headings, paragraphs, links)
          - Use the original site's title and description
-         - Use the original site's images with their labels when provided
+         - Use ALL of the provided images and media. Every listed image/video should appear somewhere appropriate in the wireframe.
+         - Respect the labels — use them to place media in the correct context (e.g., "how it works step 1" goes in a how-it-works section, "press logo" in a press/trust bar, "lifestyle" in hero or lifestyle sections).
+         - For items marked "type: video", use <video> tags with autoplay, muted, loop, playsinline attributes and the src as the source.
+         - For items marked "type: gif", use <img> tags as normal.
+         - For items marked "type: logo" or labeled as logos, use them in navigation, footer, or trust sections as appropriate.
 
       6. COMPONENTS:
          - Build components following the patterns' structure descriptions
@@ -700,13 +729,17 @@ class WireframeGenerator
       MANDATORY: Return the COMPLETE page with ALL sections including footer. Return ONLY the raw HTML starting with <style>.
     PROMPT
 
+    prompt = "Today's date is #{today_date}.\n\n" + prompt
+
     Rails.logger.info "="*80
     custom_prompt_info = config[:custom_prompt].present? ? " + CUSTOM PROMPT (#{config[:custom_prompt].length} chars)" : ""
     Rails.logger.info "PHASE 2: WIREFRAME GENERATION PROMPT (#{prompt.length} chars)#{custom_prompt_info}"
     Rails.logger.info "="*80
 
     # Use higher token limit for complete page generation
-    call_ai(prompt, json_mode: false, max_tokens: 20000)
+    result = call_ai(prompt, json_mode: false, max_tokens: 32000)
+    result = ensure_wireframe_complete_sync(result) if result.present?
+    result
   end
 
   def generate_wireframe_from_patterns_streaming(design_system, design_patterns, inspiration_url, &block)
@@ -718,6 +751,8 @@ class WireframeGenerator
     
     font_pairing_strategy = design_patterns['font_pairing_strategy'] || design_patterns[:font_pairing_strategy] ||
       "Create clear hierarchy using font weight and size variations."
+
+    today_date = Date.today.strftime("%B %d, %Y")
 
     custom_instruction = if config[:custom_prompt].present?
       <<~CUSTOM
@@ -756,7 +791,7 @@ class WireframeGenerator
       FONTS (use these):
       #{format_fonts(design_system[:fonts])}
 
-      IMAGES (use these):
+      IMAGES & MEDIA (use ALL of these — entries marked "type: video" should use <video> tags; all others use <img>):
       #{design_system[:images].join("\n")}
 
       TEXT CONTENT (use this text in your wireframe):
@@ -799,10 +834,14 @@ class WireframeGenerator
          - Ensure WCAG AA contrast ratios between text and background colors.
          - Use the CSS variables throughout all styles. Never use raw hex codes in component styles.
 
-      5. CONTENT:
+      5. CONTENT & MEDIA:
          - Extract ALL text content from the original HTML (headings, paragraphs, links)
          - Use the original site's title and description
-         - Use the original site's images with their labels when provided
+         - Use ALL of the provided images and media. Every listed image/video should appear somewhere appropriate in the wireframe.
+         - Respect the labels — use them to place media in the correct context (e.g., "how it works step 1" goes in a how-it-works section, "press logo" in a press/trust bar, "lifestyle" in hero or lifestyle sections).
+         - For items marked "type: video", use <video> tags with autoplay, muted, loop, playsinline attributes and the src as the source.
+         - For items marked "type: gif", use <img> tags as normal.
+         - For items marked "type: logo" or labeled as logos, use them in navigation, footer, or trust sections as appropriate.
 
       6. COMPONENTS:
          - Build components following the patterns' structure descriptions
@@ -846,12 +885,15 @@ class WireframeGenerator
       MANDATORY: Return the COMPLETE page with ALL sections including footer. Return ONLY the raw HTML starting with <style>.
     PROMPT
 
+    prompt = "Today's date is #{today_date}.\n\n" + prompt
+
     Rails.logger.info "Streaming wireframe generation with prompt: #{prompt.length} chars"
     
     result = call_ai_streaming(prompt, &block)
-    
+    result = ensure_wireframe_complete(result, &block) if result.present?
+
     Rails.logger.info "Streaming result length: #{result&.length || 0} chars"
-    
+
     result
   end
 
@@ -966,7 +1008,7 @@ class WireframeGenerator
       FONTS (use these):
       #{format_fonts(design_system[:fonts])}
 
-      IMAGES (use these):
+      IMAGES & MEDIA (use ALL of these — entries marked "type: video" should use <video> tags; all others use <img>):
       #{design_system[:images].join("\n")}
 
       ========================================
@@ -996,19 +1038,22 @@ class WireframeGenerator
     Rails.logger.info "Streaming wireframe regeneration with prompt: #{prompt.length} chars"
 
     result = call_ai_streaming(prompt, &block)
+    result = ensure_wireframe_complete(result, &block) if result.present?
 
     Rails.logger.info "Streaming regeneration result length: #{result&.length || 0} chars"
 
     result
   end
 
+  # Anthropic SDK v1.17+ requires streaming for requests that may exceed 10 minutes.
+  # At high max_tokens (>= 20000) we stream internally and accumulate the result.
+  STREAMING_TOKEN_THRESHOLD = 20_000
+
   def call_ai(prompt, json_mode: false, override_model: nil, max_tokens: 16384)
     # Use audit's AI config for model and temperature
     model = override_model || audit.ai_config&.dig("model") || "claude-opus-4-6"
     temperature = audit.ai_config&.dig("temperature") || 0.7
 
-    # Use the model alias directly - these are the correct API names
-    # claude-opus-4-6 and claude-sonnet-4-5 are the official aliases
     model_mapping = {
       "claude-opus-4-6" => "claude-opus-4-6",
       "claude-sonnet-4-5" => "claude-sonnet-4-5",
@@ -1028,31 +1073,32 @@ class WireframeGenerator
 
     Rails.logger.info "Calling AI with model=#{api_model}, temp=#{temperature}, max_tokens=#{max_tokens}"
 
-    response = OpenaiService.chat(
-      messages: [
-        { role: "system", content: system_message },
-        { role: "user", content: prompt }
-      ],
-      model: api_model,
-      temperature: temperature,
-      max_tokens: max_tokens
-    )
+    # Use streaming internally for large requests to satisfy Anthropic SDK timeout rules
+    if api_model.start_with?("claude") && max_tokens >= STREAMING_TOKEN_THRESHOLD
+      response = call_ai_accumulated_stream(prompt, system_message: system_message, model: api_model, temperature: temperature, max_tokens: max_tokens)
+    else
+      response = OpenaiService.chat(
+        messages: [
+          { role: "system", content: system_message },
+          { role: "user", content: prompt }
+        ],
+        model: api_model,
+        temperature: temperature,
+        max_tokens: max_tokens
+      )
+    end
 
     Rails.logger.info "AI response received: #{response&.length || 0} characters"
 
-    # Check if response is nil
     if response.nil?
       Rails.logger.error "AI returned nil response"
       return json_mode ? nil : generate_fallback_html
     end
 
-    # Clean up response (remove markdown code blocks if present)
     response = response.strip
     if json_mode
-      # Strip ```json markers
       response = response.gsub(/^```json\s*/, "").gsub(/^```\s*/, "").gsub(/```$/, "").strip
     else
-      # Strip ```html markers
       response = response.gsub(/^```html\s*/, "").gsub(/^```\s*/, "").gsub(/```$/, "").strip
     end
 
@@ -1063,7 +1109,192 @@ class WireframeGenerator
     json_mode ? nil : generate_fallback_html
   end
 
-  def call_ai_streaming(prompt, &block)
+  # Streams a Claude response and accumulates it into a string (no SSE block needed).
+  # Used internally by call_ai for large token requests.
+  def call_ai_accumulated_stream(prompt, system_message:, model:, temperature:, max_tokens:, max_retries: 3)
+    Rails.logger.info "Using accumulated streaming for #{max_tokens} token request"
+
+    anthropic_client = Anthropic::Client.new(
+      api_key: ENV.fetch("ANTHROPIC_API_KEY", Rails.application.credentials.dig(:anthropic, :api_key))
+    )
+
+    attempt = 0
+    last_error = nil
+
+    while attempt < max_retries
+      attempt += 1
+      accumulated = ""
+
+      begin
+        stream = anthropic_client.messages.stream(
+          model: model,
+          messages: [{ role: "user", content: prompt }],
+          system: system_message,
+          temperature: temperature,
+          max_tokens: max_tokens
+        )
+
+        stream.text.each { |chunk| accumulated += chunk if chunk.present? }
+
+        Rails.logger.info "Accumulated stream complete: #{accumulated.length} chars"
+        return accumulated.presence
+
+      rescue => e
+        last_error = e
+        is_overloaded = e.message.to_s.match?(/overloaded|529/i)
+
+        if is_overloaded && attempt < max_retries
+          backoff = attempt * 10
+          Rails.logger.warn "⚠️  Accumulated stream overloaded (attempt #{attempt}/#{max_retries}). Retrying in #{backoff}s..."
+          sleep(backoff)
+          next
+        end
+
+        Rails.logger.error "Accumulated stream failed (attempt #{attempt}): #{e.message}"
+        return nil
+      end
+    end
+
+    Rails.logger.error "Accumulated stream failed after #{max_retries} attempts: #{last_error&.message}"
+    nil
+  end
+
+  # ── Completion helpers ─────────────────────────────────────────────────────
+
+  # Returns true when the wireframe appears to have a closing </footer> tag.
+  def wireframe_html_complete?(html)
+    return false unless html.present?
+    html.match?(/<\/footer\s*>/i)
+  end
+
+  # Non-streaming version: check completeness and issue up to max_continuations
+  # synchronous follow-up calls to finish a truncated wireframe.
+  def ensure_wireframe_complete_sync(partial_html, max_continuations: 2)
+    html = partial_html
+
+    # Don't try to continue from fallback HTML
+    if html.include?("This is a fallback wireframe") || html.length < 1000
+      Rails.logger.warn "⚠️  Skipping sync continuation — content is fallback or too small (#{html.length} chars)"
+      return html
+    end
+
+    max_continuations.times do |i|
+      break if wireframe_html_complete?(html)
+
+      Rails.logger.warn "⚠️  Wireframe truncated at #{html.length} chars — requesting sync continuation #{i + 1}/#{max_continuations}"
+
+      continuation = call_ai_continuation(html)
+      break unless continuation.present?
+
+      html = html + continuation
+    end
+
+    if wireframe_html_complete?(html)
+      Rails.logger.info "✅ Wireframe complete after sync continuations (#{html.length} chars)"
+    else
+      Rails.logger.warn "⚠️  Wireframe may still be incomplete after sync continuations"
+    end
+
+    html
+  end
+
+  # Synchronous (non-streaming) continuation request for truncated wireframes.
+  def call_ai_continuation(partial_html)
+    tail = partial_html.last(4000)
+
+    continuation_prompt = <<~PROMPT
+      You are completing an HTML wireframe that was cut off before finishing.
+
+      IMPORTANT RULES:
+      - Continue EXACTLY from where the content below ends
+      - Do NOT repeat any of the existing content
+      - Do NOT add any preamble, explanation, or code fences
+      - Start your response with the very next HTML character/tag
+      - Complete all remaining sections and end with a closing </footer> tag
+      - Return ONLY raw HTML
+
+      EXISTING CONTENT (last part — continue from here):
+      #{tail}
+    PROMPT
+
+    Rails.logger.info "Sync continuation prompt: #{continuation_prompt.length} chars"
+    result = call_ai(continuation_prompt, json_mode: false, max_tokens: 16384)
+    result&.strip
+  end
+
+  # After a streaming call, check completeness and issue up to max_continuations
+  # follow-up calls that each stream their chunks back to the client with the
+  # full accumulated HTML as context.
+  def ensure_wireframe_complete(partial_html, max_continuations: 2, &block)
+    html = partial_html
+
+    # Don't try to continue from fallback HTML — it's a placeholder, not real content
+    if html.include?("This is a fallback wireframe") || html.length < 1000
+      Rails.logger.warn "⚠️  Skipping continuation — content is fallback or too small (#{html.length} chars)"
+      return html
+    end
+
+    max_continuations.times do |i|
+      break if wireframe_html_complete?(html)
+
+      Rails.logger.warn "⚠️  Wireframe truncated at #{html.length} chars — requesting continuation #{i + 1}/#{max_continuations}"
+      block.call({ phase: "generating", message: "Completing generation (continuation #{i + 1})..." })
+
+      continuation = call_ai_streaming_continuation(html, &block)
+      break unless continuation.present?
+
+      html = html + continuation
+    end
+
+    if wireframe_html_complete?(html)
+      Rails.logger.info "✅ Wireframe complete (#{html.length} chars)"
+    else
+      Rails.logger.warn "⚠️  Wireframe may still be incomplete after continuations"
+    end
+
+    html
+  end
+
+  # Issues a streaming continuation request. The block receives the same
+  # { type: "content", chunk:, accumulated: } events as the original stream,
+  # but `accumulated` is offset so it contains the FULL document (prepended
+  # partial) — keeping the live iframe up-to-date.
+  def call_ai_streaming_continuation(partial_html, &block)
+    # Send only the tail so we don't exceed context limits, but enough for the
+    # model to understand where it is in the document.
+    tail = partial_html.last(4000)
+
+    continuation_prompt = <<~PROMPT
+      You are completing an HTML wireframe that was cut off before finishing.
+
+      IMPORTANT RULES:
+      - Continue EXACTLY from where the content below ends
+      - Do NOT repeat any of the existing content
+      - Do NOT add any preamble, explanation, or code fences
+      - Start your response with the very next HTML character/tag
+      - Complete all remaining sections and end with a closing </footer> tag
+      - Return ONLY raw HTML
+
+      EXISTING CONTENT (last part — continue from here):
+      #{tail}
+    PROMPT
+
+    offset = partial_html.length
+
+    # Wrap the block so `accumulated` always reflects the full document
+    wrapped_block = proc do |chunk_data|
+      if chunk_data[:type] == "content"
+        block.call(chunk_data.merge(accumulated: partial_html + chunk_data[:accumulated]))
+      else
+        block.call(chunk_data)
+      end
+    end
+
+    Rails.logger.info "Streaming continuation prompt: #{continuation_prompt.length} chars, offset: #{offset}"
+    call_ai_streaming(continuation_prompt, &wrapped_block)
+  end
+
+  def call_ai_streaming(prompt, max_retries: 3, &block)
     model = audit.ai_config&.dig("model") || "claude-opus-4-6"
     temperature = audit.ai_config&.dig("temperature") || 0.7
 
@@ -1076,70 +1307,97 @@ class WireframeGenerator
 
     api_model = model_mapping[model] || "claude-opus-4-6"
 
-    Rails.logger.info "Streaming AI with model=#{api_model}, temp=#{temperature}, max_tokens=32000"
-
     system_message = "You are an expert web designer. Return only raw HTML code, no markdown, no JSON."
-    
-    accumulated_html = ""
-    event_count = 0
-    
-    # Use Anthropic's streaming API
+
     anthropic_client = Anthropic::Client.new(
       api_key: ENV.fetch("ANTHROPIC_API_KEY", Rails.application.credentials.dig(:anthropic, :api_key))
     )
-    
-    Rails.logger.info "🔄 Starting Anthropic stream..."
-    
-    # Create the stream object (not passing a block here)
-    stream = anthropic_client.messages.stream(
-      model: api_model,
-      messages: [
-        { role: "user", content: prompt }
-      ],
-      system: system_message,
-      temperature: temperature,
-      max_tokens: 32000
-    )
-    
-    # Use the text stream helper which automatically handles all event types
-    stream.text.each do |text_chunk|
-      event_count += 1
-      
-      if event_count <= 5
-        Rails.logger.info "Text chunk #{event_count}: #{text_chunk.length} chars"
-      end
-      
-      if text_chunk && !text_chunk.empty?
-        accumulated_html += text_chunk
-        block.call({ type: "content", chunk: text_chunk, accumulated: accumulated_html })
-      end
-    end
-    
-    Rails.logger.info "✅ Streaming complete: #{accumulated_html.length} characters (#{event_count} chunks)"
 
-    Rails.logger.info "Stream loop finished. Accumulated: #{accumulated_html.length} chars"
-    
-    # Clean up response
-    accumulated_html = accumulated_html.strip
-    accumulated_html = accumulated_html.gsub(/^```html\s*/, "").gsub(/^```\s*/, "").gsub(/```$/, "").strip
-    
-    Rails.logger.info "After cleanup: #{accumulated_html.length} chars"
-    
-    if accumulated_html.empty?
-      Rails.logger.error "⚠️  Stream completed but accumulated HTML is empty!"
-      Rails.logger.error "Total events received: #{event_count}"
-      raise "Streaming completed with no content"
+    attempt = 0
+    last_error = nil
+
+    while attempt < max_retries
+      attempt += 1
+      accumulated_html = ""
+      event_count = 0
+
+      Rails.logger.info "Streaming AI with model=#{api_model}, temp=#{temperature}, max_tokens=32000 (attempt #{attempt}/#{max_retries})"
+
+      begin
+        Rails.logger.info "🔄 Starting Anthropic stream..."
+
+        stream = anthropic_client.messages.stream(
+          model: api_model,
+          messages: [
+            { role: "user", content: prompt }
+          ],
+          system: system_message,
+          temperature: temperature,
+          max_tokens: 32000
+        )
+
+        stream.text.each do |text_chunk|
+          event_count += 1
+
+          if event_count <= 5
+            Rails.logger.info "Text chunk #{event_count}: #{text_chunk.length} chars"
+          end
+
+          if text_chunk && !text_chunk.empty?
+            accumulated_html += text_chunk
+            block.call({ type: "content", chunk: text_chunk, accumulated: accumulated_html })
+          end
+        end
+
+        Rails.logger.info "✅ Streaming complete: #{accumulated_html.length} characters (#{event_count} chunks)"
+        Rails.logger.info "Stream loop finished. Accumulated: #{accumulated_html.length} chars"
+
+        # Clean up response
+        accumulated_html = accumulated_html.strip
+        accumulated_html = accumulated_html.gsub(/^```html\s*/, "").gsub(/^```\s*/, "").gsub(/```$/, "").strip
+
+        Rails.logger.info "After cleanup: #{accumulated_html.length} chars"
+
+        if accumulated_html.empty?
+          Rails.logger.error "⚠️  Stream completed but accumulated HTML is empty!"
+          raise "Streaming completed with no content"
+        end
+
+        return accumulated_html
+
+      rescue IOError, Errno::EPIPE => e
+        # Client disconnected — not retryable, return what we have
+        Rails.logger.warn "Client disconnected during streaming: #{e.message}"
+        return accumulated_html.presence || generate_fallback_html
+
+      rescue => e
+        last_error = e
+        is_overloaded = e.message.to_s.include?("overloaded") ||
+                        e.message.to_s.include?("Overloaded") ||
+                        e.message.to_s.include?("overloaded_error") ||
+                        e.message.to_s.include?("529")
+
+        if is_overloaded && attempt < max_retries
+          backoff = attempt * 10  # 10s, 20s, 30s
+          Rails.logger.warn "⚠️  API overloaded on attempt #{attempt}/#{max_retries}. Retrying in #{backoff}s..."
+          block.call({ phase: "generating", message: "API busy — retrying in #{backoff}s (attempt #{attempt + 1}/#{max_retries})..." }) rescue nil
+          sleep(backoff)
+          # Reset the SSE stream for the retry — send an empty content event so
+          # the client knows we're starting fresh
+          block.call({ type: "content", chunk: "", accumulated: "" }) rescue nil
+          next
+        end
+
+        Rails.logger.error "AI streaming failed (attempt #{attempt}): #{e.message}"
+        Rails.logger.error e.backtrace.first(5).join("\n")
+        block.call({ type: "error", error: e.message }) rescue nil
+        return generate_fallback_html
+      end
     end
-    
-    accumulated_html
-  rescue IOError, Errno::EPIPE => e
-    # Client disconnected - log but don't treat as error
-    Rails.logger.warn "Client disconnected during streaming: #{e.message}"
-    accumulated_html.presence || generate_fallback_html
-  rescue => e
-    Rails.logger.error "AI streaming failed: #{e.message}"
-    Rails.logger.error e.backtrace.first(5).join("\n")
-    block.call({ type: "error", error: e.message }) rescue nil
+
+    # All retries exhausted
+    Rails.logger.error "AI streaming failed after #{max_retries} attempts: #{last_error&.message}"
+    block.call({ type: "error", error: "API unavailable after #{max_retries} attempts" }) rescue nil
     generate_fallback_html
   end
 

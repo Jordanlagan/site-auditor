@@ -71,6 +71,17 @@ const Icon = ({ name, size = 24, color = 'currentColor', className = '' }) => {
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
         <polyline points="22 4 12 14.01 9 11.01"/>
       </svg>
+    ),
+    play: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+    ),
+    video: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <rect x="2" y="4" width="20" height="16" rx="2"/>
+        <path d="m10 8 6 4-6 4V8z"/>
+      </svg>
     )
   }
 

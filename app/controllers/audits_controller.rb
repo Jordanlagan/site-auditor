@@ -86,6 +86,65 @@ class AuditsController < ApplicationController
     render json: { error: "Page not found" }, status: :not_found
   end
 
+  # POST /audits/:id/export-slides
+  def export_slides
+    audit = Audit.find(params[:id])
+    prompt = params[:prompt]
+
+    unless prompt.present?
+      render json: { error: "Missing required parameter: prompt" }, status: :bad_request
+      return
+    end
+
+    begin
+      slides_service = GoogleSlidesService.new
+      result = slides_service.export_audit_issues(
+        audit: audit,
+        prompt: prompt
+      )
+
+      render json: {
+        content: result[:content],
+        slides_created: result[:slides_created]
+      }
+    rescue => e
+      Rails.logger.error "Google Slides export failed: #{e.message}"
+      Rails.logger.error e.backtrace.first(5).join("\n")
+      render json: { error: "Export failed: #{e.message}" }, status: :internal_server_error
+    end
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: "Audit not found" }, status: :not_found
+  end
+
+  # GET /audits/:id/wireframe-profile
+  # Returns the color and media profile from an audit's most recent wireframe generation
+  def wireframe_profile
+    audit = Audit.find(params[:id])
+
+    # Try saved defaults first (from "save as default" checkbox)
+    colors = audit.ai_config&.dig("default_color_profile")
+    images = audit.ai_config&.dig("default_image_profile")
+
+    # Fall back to most recent wireframe's config_used
+    if colors.blank? && images.blank?
+      latest_wireframe = audit.wireframes.recent.first
+      if latest_wireframe&.config_used.present?
+        config = latest_wireframe.config_used
+        colors = config["primary_colors"] || config[:primary_colors]
+        images = config["selected_images"] || config[:selected_images]
+      end
+    end
+
+    render json: {
+      audit_id: audit.id,
+      audit_url: audit.url,
+      primary_colors: colors || [],
+      selected_images: images || []
+    }
+  rescue ActiveRecord::RecordNotFound
+    render json: { error: "Audit not found" }, status: :not_found
+  end
+
   private
 
   def audit_params
@@ -184,6 +243,7 @@ class AuditsController < ApplicationController
         test_name: result.human_test_name,
         status: result.status,
         summary: result.summary,
+        details: result.details,
         data_sources: test&.data_sources || [],
         ai_prompt: result.ai_prompt,
         data_context: result.data_context,

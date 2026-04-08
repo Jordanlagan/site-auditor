@@ -34,7 +34,7 @@ gem "rack-cors"
 
 # AI for intelligent audit decisions
 gem "ruby-openai"
-gem "anthropic", "~> 1.17"
+gem "anthropic", "~> 1.31"
 
 # HTML/XML parsing
 gem "nokogiri"
